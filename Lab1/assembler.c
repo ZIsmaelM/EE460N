@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 	char *iFileName = NULL;
 	char *oFileName = NULL;
 
-	prgName = argc[0];
+	prgName = argv[0];
 	iFileName = argv[1];
 	oFileName = argv[2];
 
