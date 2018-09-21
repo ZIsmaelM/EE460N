@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 	// open the input and output files
 	infile = fopen(argv[1], "r");
 	outfile = fopen(argv[2], "w");
-
+	
 	if (!infile) {
 		printf("Error: Cannot open file %s\n", argv[1]);
 		exit(4);
@@ -52,8 +52,49 @@ int main(int argc, char* argv[]) {
 
 bool isOpcode( const char * lPtr ) {
 
-	if ( strcmp(lPtr, "ADD"))
+	// lPtr[] always lowercase
+	if ( strcmp(lPtr, "add"))
 		return true;
+	if ( strcmp(lPtr, "and"))
+		return true;
+
+	// TODO: add BR codes
+
+	if ( strcmp(lPtr, "halt"))
+		return true;
+	if ( strcmp(lPtr, "jmp"))
+		return true;
+	if ( strcmp(lPtr, "jsrr"))
+		return true;
+	if ( strcmp(lPtr, "ldb"))
+		return true;
+	if ( strcmp(lPtr, "ldw"))
+		return true;
+	if ( strcmp(lPtr, "lea"))
+		return true;
+	if ( strcmp(lPtr, "nop"))
+		return true;
+	if ( strcmp(lPtr, "not"))
+		return true;
+	if ( strcmp(lPtr, "ret"))
+		return true;
+	if ( strcmp(lPtr, "lshf"))
+		return true;
+	if ( strcmp(lPtr, "rshfl"))
+		return true;
+	if ( strcmp(lPtr, "rshfa"))
+		return true;
+	if ( strcmp(lPtr, "rti"))
+		return true;
+	if ( strcmp(lPtr, "stb"))
+		return true;
+	if ( strcmp(lPtr, "stw"))
+		return true;
+	if ( strcmp(lPtr, "trap"))
+		return true;
+	if ( strcmp(lPtr, "xor"))
+		return true;
+
 
 	return false;
 }
