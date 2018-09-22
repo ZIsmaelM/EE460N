@@ -1,0 +1,7 @@
+	.ORIG x3000	;x3000
+	AND R0, R0, #0	;x5020
+	AND R1, R1, #0	;x5260
+	ADD R1, R1, #3	;x1263
+	ADD R0, R0, #1	;x1021
+	ADD R2, R0, R1	;x1401
+	.END

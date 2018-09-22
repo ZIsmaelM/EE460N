@@ -5,96 +5,75 @@
 #include <limits.h> /* Library for definitions of common variable type characteristics */
 #include <stdbool.h>
 
-FILE *infile = NULL;
-FILE *outfile = NULL;
+#define MAX_LINE_LENGTH 255
+enum
+{
+	DONE, OK, EMPTY_LINE
+};
 
-int main(int argc, char* argv[]) {
-	printf("---START---\n");
+bool isEmpty( char * stringPtr )
+{
+	if(stringPtr[0] == '\0')
+		return true;
 
-	// parse the command line arguments
-	char *prgName = NULL;
-	char *iFileName = NULL;
-	char *oFileName = NULL;
+	return false;
+}
 
-	prgName = argv[0];
-	iFileName = argv[1];
-	oFileName = argv[2];
+int getOpcodeInt(char * opcode)
+{
+	// opcode[] always lowercase
+	if ( strcmp(opcode, "add"))
+		return 1;	// ??????
+	if ( strcmp(opcode, "and"))
+		return 5;	// ??????
 
-	printf("program name = '%s'\n", prgName);
-	printf("input file name = '%s'\n", iFileName);
-	printf("output file name = '%s'\n", oFileName);
+	// TODO: add BR codes
 
-	// open the input and output files
-	infile = fopen(argv[1], "r");
-	outfile = fopen(argv[2], "w");
-	
-	if (!infile) {
-		printf("Error: Cannot open file %s\n", argv[1]);
-		exit(4);
-	}
-	if (!outfile) {
-		printf("Error: Cannot open file %s\n", argv[2]);
-		exit(4);
-	}
+	if ( strcmp(opcode, "halt"))
+		return 15;
+	if ( strcmp(opcode, "jmp"))
+		return 12;
+	if ( strcmp(opcode, "jsrr"))
+		return 8;
+	if ( strcmp(opcode, "ldb"))
+		return 2;
+	if ( strcmp(opcode, "ldw"))
+		return 6;
+	if ( strcmp(opcode, "lea"))
+		return 14;
+	if ( strcmp(opcode, "nop"))
+		return 0;
+	if ( strcmp(opcode, "not"))
+		return 9;
+	if ( strcmp(opcode, "ret"))
+		return 12;
+	if ( strcmp(opcode, "lshf"))
+		return 13;
+	if ( strcmp(opcode, "rshfl"))
+		return 13;
+	if ( strcmp(opcode, "rshfa"))
+		return 13;
+	if ( strcmp(opcode, "rti"))
+		return 8;
+	if ( strcmp(opcode, "stb"))
+		return 3;
+	if ( strcmp(opcode, "stw"))
+		return 7;
+	if ( strcmp(opcode, "trap"))
+		return 15;
+	if ( strcmp(opcode, "xor"))
+		return 9;
 
-	/* TODO: Translate the input file and write to the output file */
-
-	fclose(infile);
-	fclose(outfile);
-
-	return 0;
+	return -1;
 }
 
 /* check if given string is a valid opcode
 	Valid Opcodes: ADD, AND, BR(all variations), HALT, JMP, JSRR, LDB, LDW, LEA,
-				 NOP, NOT, RET, LSHF, RSHFL, RSHFA, RTI, STB, STW, TRAP, XOR
-*/
+				 NOP, NOT, RET, LSHF, RSHFL, RSHFA, RTI, STB, STW, TRAP, XOR */
+bool isOpcode( char * lPtr ) {
 
-bool isOpcode( const char * lPtr ) {
-
-	// lPtr[] always lowercase
-	if ( strcmp(lPtr, "add"))
+	if (getOpcodeInt(lPtr) != -1)
 		return true;
-	if ( strcmp(lPtr, "and"))
-		return true;
-
-	// TODO: add BR codes
-
-	if ( strcmp(lPtr, "halt"))
-		return true;
-	if ( strcmp(lPtr, "jmp"))
-		return true;
-	if ( strcmp(lPtr, "jsrr"))
-		return true;
-	if ( strcmp(lPtr, "ldb"))
-		return true;
-	if ( strcmp(lPtr, "ldw"))
-		return true;
-	if ( strcmp(lPtr, "lea"))
-		return true;
-	if ( strcmp(lPtr, "nop"))
-		return true;
-	if ( strcmp(lPtr, "not"))
-		return true;
-	if ( strcmp(lPtr, "ret"))
-		return true;
-	if ( strcmp(lPtr, "lshf"))
-		return true;
-	if ( strcmp(lPtr, "rshfl"))
-		return true;
-	if ( strcmp(lPtr, "rshfa"))
-		return true;
-	if ( strcmp(lPtr, "rti"))
-		return true;
-	if ( strcmp(lPtr, "stb"))
-		return true;
-	if ( strcmp(lPtr, "stw"))
-		return true;
-	if ( strcmp(lPtr, "trap"))
-		return true;
-	if ( strcmp(lPtr, "xor"))
-		return true;
-
 
 	return false;
 }
@@ -173,16 +152,9 @@ int toNum( char * pStr ) {
 /* Take a line from the input file and parse it into its corresponding section
 	(i.e. LABEL, OPCODE, OPERANDS, COMMENTS)
 	*/
-#define MAX_LINE_LENGTH 255
-enum
-{
-	DONE, OK, EMPTY_LINE
-};
-
 int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
-)
-{
+) {
 	char * lRet, * lPtr;
 	int i;
 	if( !fgets( pLine, MAX_LINE_LENGTH, pInfile ) )
@@ -195,7 +167,6 @@ int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 
 	/* ignore the comments */
 	lPtr = pLine;
-
 	while( *lPtr != ';' && *lPtr != '\0' && *lPtr != '\n' ) 
 		lPtr++;
 
@@ -203,12 +174,14 @@ int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 	if( !(lPtr = strtok( pLine, "\t\n ," ) ) ) 
 		return( EMPTY_LINE );
 
-	if( isOpcode( lPtr ) == -1 && lPtr[0] != '.' ) /* found a label */
+	/* return if label */
+	if( isOpcode( lPtr ) == -1 && lPtr[0] != '.' )
 	{
 		*pLabel = lPtr;
 		if( !( lPtr = strtok( NULL, "\t\n ," ) ) ) return( OK );
 	}
 
+	/* return if opcode */
 	*pOpcode = lPtr;
 	if( !( lPtr = strtok( NULL, "\t\n ," ) ) ) return( OK );
 
@@ -225,5 +198,138 @@ int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 
 	return( OK );
 }
-/* Note: MAX_LINE_LENGTH, OK, EMPTY_LINE, and DONE are defined values */
+
+char* getArgType(char * pArg)
+{
+	if ( pArg[0] == 'r' && isdigit(pArg[1]))
+		return "reg";
+	if ( pArg[0] == '#' || pArg[0] == 'x')
+		return "imm";
+}
+
+int getArgInt(char * pArg)
+{
+	/* return the value of the register */
+	if ( pArg[0] == 'r' && isdigit(pArg[1])) {
+		int num = pArg[1] - '0';
+		return num;
+	}
+	/* return the value of the immediate */
+	if ( pArg[0] == '#' || pArg[0] == 'x')
+		return toNum(pArg);
+
+	return 0;
+}
+
+void shiftUp(int * value, int shiftNum)
+{
+	*value = *value << shiftNum;
+}
+int instCount = 0;
+
+int assembleInstruction(char ** pLabel, char
+** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
+)
+{
+	int opcodeInt = getOpcodeInt(*pOpcode);
+	shiftUp(&opcodeInt, 12);
+
+	int arg1Int = 0;
+	if( !isEmpty(*pArg1) ) {
+		arg1Int = getArgInt(*pArg1) << 9;
+		//shiftUp(&arg1Int, 9);
+	}
+
+	int arg2Int = 0;
+	if( !isEmpty(*pArg2) ) {
+		arg2Int = getArgInt(*pArg2) << 6;
+		//shiftUp(&arg1Int, 6);
+	}
+
+	int arg3Int = 0;
+	if( !isEmpty(*pArg3) ) {
+		arg3Int = getArgInt(*pArg3);
+	}
+
+	int arg4Int = 0;
+	if(!isEmpty(*pArg4)) {
+		arg4Int = getArgInt(*pArg4);
+	}
+
+	int bit5 = 0;
+	if( getArgType(*pArg3) == "imm")
+		bit5 = 32;
+
+	printf("instr %d: opcode: %d\t operand: %d\t operand: %d\t operand: %d\t operand: %d\t \n"
+				, instCount, opcodeInt, arg1Int, arg2Int, arg3Int, arg4Int);
+
+	return opcodeInt + arg1Int + arg2Int + bit5 + arg3Int;
+
+}
+
+
+
+FILE *infile = NULL;
+FILE *outfile = NULL;
+
+
+int main(int argc, char* argv[]) {
+	printf("---START---\n");
+
+	// parse the command line arguments
+	char *prgName = NULL;
+	char *iFileName = NULL;
+	char *oFileName = NULL;
+
+	prgName = argv[0];
+	iFileName = argv[1];
+	oFileName = argv[2];
+
+	printf("program name = '%s'\n", prgName);
+	printf("input file name = '%s'\n", iFileName);
+	printf("output file name = '%s'\n", oFileName);
+
+	// open the input and output files
+	infile = fopen(argv[1], "r");
+	outfile = fopen(argv[2], "w");
+	
+	if (!infile) {
+		printf("Error: Cannot open file %s\n", argv[1]);
+		exit(4);
+	}
+	if (!outfile) {
+		printf("Error: Cannot open file %s\n", argv[2]);
+		exit(4);
+	}
+
+	char lLine[MAX_LINE_LENGTH + 1], *lLabel, *lOpcode, *lArg1,
+	        *lArg2, *lArg3, *lArg4;
+
+	int lRet;
+	int instr = 0;
+	do
+	{
+		lRet = readAndParse( infile, lLine, &lLabel,
+			&lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
+		if( lRet != DONE && lRet != EMPTY_LINE ) // DONE == 0 | OK == 1 | EMPTY_LINE == 2
+		{
+			instr = assembleInstruction( &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
+		}
+
+		if( lOpcode[0] != '.') {
+			printf("instr %d: opcode: %s\t operand: %s\t operand: %s\t operand: %s\t operand: %s\t \n"
+				, instCount, lOpcode, lArg1, lArg2, lArg3, lArg4);
+			fprintf( outfile, "0x%.4X\n", instr);
+			instCount++;
+		}
+	} while( lRet != DONE );
+
+
+	/* TODO: Translate the input file and write to the output file */
+
+	fclose(infile);
+	fclose(outfile);
+
+	return 0;
+}
 
