@@ -9,9 +9,18 @@
 #define MAX_LABEL_LEN 20
 #define MAX_SYMBOLS 255
 
+#define INSTR_FORMAT_0 0
+#define INSTR_FORMAT_1 1
+#define INSTR_FORMAT_2 2
+#define INSTR_FORMAT_3 3
+#define INSTR_FORMAT_4 4
+
+
 int symbolCount = 0;
-int instructionCount = 0;
+int instrCount = 0;
+int instrFormat;
 int origIndex;
+int regs[8];
 
 typedef struct {
     int address;
@@ -48,48 +57,59 @@ int getOpcodeInt(char * opcode)
 {
 	// opcode[] always lowercase
 
-	if ( strcmp(opcode, "add") == 0)
-		return 1;	// ??????
+	instrFormat = INSTR_FORMAT_0;
+	if ( strcmp(opcode, "add") == 0) 
+		return 1;
 	if ( strcmp(opcode, "and") == 0)
-		return 5;	// ??????
+		return 5;
+	if ( strcmp(opcode, "not") == 0)
+		return 9;
+	if ( strcmp(opcode, "xor") == 0)
+		return 9;
 
-	// TODO: add BR codes
-
-	if ( strcmp(opcode, "halt") == 0)
-		return 15;
-	if ( strcmp(opcode, "jmp") == 0)
-		return 12;
-	if ( strcmp(opcode, "jsrr") == 0)
-		return 8;
+	instrFormat = INSTR_FORMAT_1;
 	if ( strcmp(opcode, "ldb") == 0)
 		return 2;
 	if ( strcmp(opcode, "ldw") == 0)
 		return 6;
-	if ( strcmp(opcode, "lea") == 0)
-		return 14;
-	if ( strcmp(opcode, "nop") == 0)
-		return 0;
-	if ( strcmp(opcode, "not") == 0)
-		return 9;
+	if ( strcmp(opcode, "stb") == 0)
+		return 3;
+	if ( strcmp(opcode, "stw") == 0)
+		return 7;
+	if ( strcmp(opcode, "jmp") == 0)
+		return 12;
 	if ( strcmp(opcode, "ret") == 0)
 		return 12;
+
+	instrFormat = INSTR_FORMAT_2;
 	if ( strcmp(opcode, "lshf") == 0)
 		return 13;
 	if ( strcmp(opcode, "rshfl") == 0)
 		return 13;
 	if ( strcmp(opcode, "rshfa") == 0)
 		return 13;
-	if ( strcmp(opcode, "rti") == 0)
-		return 8;
-	if ( strcmp(opcode, "stb") == 0)
-		return 3;
-	if ( strcmp(opcode, "stw") == 0)
-		return 7;
+
+	instrFormat = INSTR_FORMAT_3;
+	if ( strcmp(opcode, "jsr") == 0)
+		return 4;	
+	if ( strcmp(opcode, "jsrr") == 0)
+		return 4;
+
+	instrFormat = INSTR_FORMAT_4;
+	if ( strcmp(opcode, "halt") == 0)
+		return 15;
 	if ( strcmp(opcode, "trap") == 0)
 		return 15;
-	if ( strcmp(opcode, "xor") == 0)
-		return 9;
 
+	if ( strcmp(opcode, "lea") == 0)
+		return 14;
+
+	if ( strcmp(opcode, "rti") == 0)
+		return 8;
+	if ( strcmp(opcode, "nop") == 0)
+		return 0;	
+
+	instrFormat = -1;
 	return -1;
 }
 
@@ -230,7 +250,7 @@ char* getArgType(char * pArg)
 	if ( pArg[0] == 'r' && isdigit(pArg[1]))
 		return "reg";
 	if ( pArg[0] == '#' || pArg[0] == 'x')
-		return "imm";
+		return "num";
 }
 
 int getArgInt(char * pArg)
@@ -247,45 +267,212 @@ int getArgInt(char * pArg)
 	return 0;
 }
 
-
-int instCount = 0;
-
-int assembleInstruction(char ** pLabel, char
+/* ADD, AND, XOR, NOT */
+int assembleFormat0(int opcodeInt, char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
 )
 {
-	int opcodeInt = getOpcodeInt(*pOpcode) << 12;
+	bool setBit5 = false;
+	int arg4Int = 0;
 
+	// DR
 	int arg1Int = 0;
 	if( !isEmpty(*pArg1) ) {
 		arg1Int = getArgInt(*pArg1) << 9;
-		//shiftUp(&arg1Int, 9);
 	}
-
+	// SR1
 	int arg2Int = 0;
 	if( !isEmpty(*pArg2) ) {
 		arg2Int = getArgInt(*pArg2) << 6;
-		//shiftUp(&arg1Int, 6);
+		if( strcmp(*pOpcode, "not") == 0 )
+		{
+			setBit5 = true;
+			arg4Int = 31;
+		}
 	}
-
+	// SR2 or imm5
 	int arg3Int = 0;
 	if( !isEmpty(*pArg3) ) {
 		arg3Int = getArgInt(*pArg3);
+		if( getArgType(*pArg3) == "num")
+			setBit5 = true;
 	}
 
-	int arg4Int = 0;
+	// ???
 	if(!isEmpty(*pArg4)) {
 		arg4Int = getArgInt(*pArg4);
 	}
 
 	int bit5 = 0;
-	if( getArgType(*pArg3) == "imm")
-		bit5 = 32;
+	if( setBit5 )
+		bit5 = 1 << 5; //32
 
-	// printf("instr %d: opcode: %d\t operand: %d\t operand: %d\t operand: %d\t operand: %d\t \n"
-	// 			, instCount, opcodeInt, arg1Int, arg2Int, arg3Int, arg4Int);
+	return opcodeInt + arg1Int + arg2Int + bit5 + arg3Int + arg4Int;
+}
 
-	return opcodeInt + arg1Int + arg2Int + bit5 + arg3Int;
+/* LDB, LDW, STB, STW, JMP, RET */
+int assembleFormat1(int opcodeInt, char ** pLabel, char
+** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
+)
+{
+	int arg4Int = 0;
+
+	// DR or BR
+	int arg1Int = 0;
+	if( !isEmpty(*pArg1) ) {
+		if( strcmp(*pOpcode, "jmp") == 0 )
+			arg1Int = getArgInt(*pArg1) << 6;
+		else
+			arg1Int = getArgInt(*pArg1) << 9;
+	}
+	// BR
+	int arg2Int = 0;
+	if( !isEmpty(*pArg2) ) {
+		if( strcmp(*pOpcode, "ret") == 0 )
+			arg2Int = 7 << 6;
+		else
+			arg2Int = getArgInt(*pArg2) << 6;
+	}
+	// offset6
+	int arg3Int = 0;
+	if( !isEmpty(*pArg3) ) {
+		arg3Int = getArgInt(*pArg3);
+	}
+
+	// ???
+	if(!isEmpty(*pArg4)) {
+		arg4Int = getArgInt(*pArg4);
+	}
+
+	return opcodeInt + arg1Int + arg2Int + arg3Int + arg4Int;
+}
+
+int assembleFormat2(int opcodeInt, char ** pLabel, char
+** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
+)
+{
+	// DR
+	int arg1Int = 0;
+	if( !isEmpty(*pArg1) ) {
+		arg1Int = getArgInt(*pArg1) << 9;
+	}
+	// SR
+	int arg2Int = 0;
+	if( !isEmpty(*pArg2) ) {
+		arg2Int = getArgInt(*pArg2) << 6;
+	}
+	// amount4
+	int arg3Int = 0;
+	if( !isEmpty(*pArg3) ) {
+		arg3Int = getArgInt(*pArg3);
+	}
+
+	// ???
+	int arg4Int = 0;
+	if(!isEmpty(*pArg4)) { 
+		arg4Int = getArgInt(*pArg4);
+	}
+
+	if( strcmp(*pOpcode, "rshfl") == 0 )
+		arg4Int = 1 << 4;
+	else if( strcmp(*pOpcode, "rshfa") == 0 )
+		arg4Int = 3 << 4;
+
+	return opcodeInt + arg1Int + arg2Int + arg3Int + arg4Int;
+}
+
+int assembleFormat3(int opcodeInt, char ** pLabel, char
+** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
+)
+{
+	int bit11 = 0;
+	// BR or PCoffset9
+	int arg1Int = 0;
+	if( !isEmpty(*pArg1) ) {
+		if( getArgType(*pArg1) == "num")
+		{
+			arg1Int = getArgInt(*pArg1);
+			bit11 = 1 << 11;
+		}
+		else
+		{
+			arg1Int = getArgInt(*pArg1) << 6;
+		}
+	}
+
+	return opcodeInt + arg1Int + bit11;
+}
+
+int assembleFormat4(int opcodeInt, char ** pLabel, char
+** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
+)
+{
+	// trapvect8
+	int arg1Int = 0;
+	if( !isEmpty(*pArg1) )
+		arg1Int = getArgInt(*pArg1);
+	if( strcmp(*pOpcode, "halt") == 0 )
+		arg1Int = 0x25;
+
+	return opcodeInt + arg1Int;
+}
+
+int instCount = 0;
+int assembleInstruction(char ** pLabel, char
+** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
+)
+{
+	int opcodeInt = getOpcodeInt(*pOpcode);
+	int opcodeShift = opcodeInt << 12;
+	int result = -1;
+
+	/* RTI */
+	if( strcmp(*pOpcode, "rti") == 0 )
+	{
+		//printf("RTI\n");
+		return opcodeShift;
+	}
+	if( strcmp(*pOpcode, "nop") == 0 )
+	{
+		//printf("NOP\n");
+		return 0;
+	}
+
+	/* ADD, AND, XOR, NOT */
+	if( instrFormat == INSTR_FORMAT_0 )
+	{
+		printf("Format0\n");
+		result = assembleFormat0( opcodeShift, pLabel, pOpcode, pArg1, pArg2, pArg3, pArg4 );
+	}
+	
+	/* LDB, LDW, STB, STW, JMP, RET */
+	if( instrFormat == INSTR_FORMAT_1 )
+	{
+		printf("Format1\n");
+		result = assembleFormat1( opcodeShift, pLabel, pOpcode, pArg1, pArg2, pArg3, pArg4 );
+	}
+
+	/* LSHF, RSHFL, RSHFA */
+	if( instrFormat == INSTR_FORMAT_2 )
+	{
+		printf("Format2\n");
+		result = assembleFormat2( opcodeShift, pLabel, pOpcode, pArg1, pArg2, pArg3, pArg4 );
+	}
+
+	/* JSR, JSRR */
+	if( instrFormat == INSTR_FORMAT_3 )
+	{
+		printf("Format3\n");
+		result = assembleFormat3( opcodeShift, pLabel, pOpcode, pArg1, pArg2, pArg3, pArg4 );
+	}
+
+	/* TRAP, HALT */
+	if( instrFormat == INSTR_FORMAT_4 )
+	{
+		printf("Format4\n");
+		result = assembleFormat4( opcodeShift, pLabel, pOpcode, pArg1, pArg2, pArg3, pArg4 );
+	}
+	return result;
 
 }
 
@@ -311,7 +498,7 @@ bool isValidLabel(char * pLabel)
 void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 {
 	if( isOpcode(lOpcode) )
-		instructionCount++;
+		instrCount++;
 
 	if( strcmp(lOpcode, ".orig") == 0 )
 	{	// TODO: if origin is not given a value
@@ -335,7 +522,7 @@ void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 		if( isValidLabel(lLabel) )
 		{
 			strcpy(symbolTable[symbolCount].label, lLabel);
-			symbolTable[symbolCount].address = instructionCount * 2
+			symbolTable[symbolCount].address = instrCount * 2
 												+ symbolTable[origIndex].address;
 			symbolCount++;
 		} else
@@ -359,7 +546,7 @@ void printSymbolTable()
 void printResult()
 {
 	printf("*************************************************\n");
-	for( int i = 0; i < instructionCount; i++)
+	for( int i = 0; i < instrCount; i++)
 	{
 		printf("Index: %d   Hex: 0x%.4X   Label: %s   Opcode: %s   Arg1: %s   Arg2: %s   Arg3: %s   Arg4: %s\n"
 			, i, instrTable[i].val, instrTable[i].label, instrTable[i].op
@@ -387,10 +574,10 @@ int main(int argc, char* argv[]) {
 	printf("output file name = '%s'\n", oFileName);
 
 	// open the input and output files
-	// infile = fopen(argv[1], "r"); //fopen("test2.txt", "r");
-	// outfile = fopen(argv[2], "w"); //fopen("results2.txt", "w");
-	infile = fopen("test1.txt", "r");
-	outfile = fopen("results1.txt", "w");
+	infile = fopen(argv[1], "r"); //fopen("test2.txt", "r");
+	outfile = fopen(argv[2], "w"); //fopen("results2.txt", "w");
+	// infile = fopen("test1.txt", "r");
+	// outfile = fopen("results1.txt", "w");
 	
 	if (!infile) {
 		printf("Error: Cannot open file %s\n", argv[1]);
@@ -419,17 +606,17 @@ int main(int argc, char* argv[]) {
 			{
 				instr = assembleInstruction( &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
 				/* Debug purposes */
-				instrTable[instructionCount].val = instr;
-				strcpy(instrTable[instructionCount].label, lLabel);
-				strcpy(instrTable[instructionCount].op, lOpcode);
-				strcpy(instrTable[instructionCount].arg1, lArg1);
-				strcpy(instrTable[instructionCount].arg2, lArg2);
-				strcpy(instrTable[instructionCount].arg3, lArg3);
-				strcpy(instrTable[instructionCount].arg4, lArg4);
-				instrTable[instructionCount].address = instructionCount * 2
+				instrTable[instrCount].val = instr;
+				strcpy(instrTable[instrCount].label, lLabel);
+				strcpy(instrTable[instrCount].op, lOpcode);
+				strcpy(instrTable[instrCount].arg1, lArg1);
+				strcpy(instrTable[instrCount].arg2, lArg2);
+				strcpy(instrTable[instrCount].arg3, lArg3);
+				strcpy(instrTable[instrCount].arg4, lArg4);
+				instrTable[instrCount].address = instrCount * 2
 												+ symbolTable[origIndex].address;
 				fprintf( outfile, "0x%.4X\n", instr);
-				instructionCount++;
+				instrCount++;
 			}
 		}
 
@@ -441,7 +628,7 @@ int main(int argc, char* argv[]) {
 		{
 			printSymbolTable();
 			firstPassDone = true;
-			instructionCount = 0;
+			instrCount = 0;
 			rewind(infile);
 			lRet = OK;
 		}

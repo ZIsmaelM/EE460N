@@ -1,0 +1,11 @@
+	.orig x3000
+	JMP r0
+	jmp r7
+	RET
+	ret
+	LDB r0, r0, x4
+	ldb r1, r2, #5
+	ldw r2, r1, x6
+	stb r0, r0, x4
+	stw r2, r1, #6
+	.end
