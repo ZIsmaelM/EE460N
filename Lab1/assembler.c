@@ -277,7 +277,25 @@ int assembleInstruction(char ** pLabel, char
 
 }
 
+bool isValidLabel(char * pLabel)
+{
+	if (strlen(pLabel) < 1 || strlen(pLabel) > 20)
+		return false;
+	if (!isalpha(pLabel[0]))
+		return false;
+	if (pLabel[0] == 'x')
+		return false;
+	if (strcmp(pLabel, "in") == 0)
+		return false;
+	if (strcmp(pLabel, "out") == 0)
+		return false;
+	if (strcmp(pLabel, "getc") == 0)
+		return false;
+	if (strcmp(pLabel, "puts") == 0)
+		return false;
 
+	return true;
+}
 void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 {
 	if( isOpcode(lOpcode) )
@@ -302,11 +320,17 @@ void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 	}
 	else if( !isEmpty(lLabel) )
 	{
-		strcpy(symbolTable[symbolCount].label, lLabel);
-		symbolTable[symbolCount].address = instructionCount * 2
-											+ symbolTable[origIndex].address;
-		symbolCount++;
+		if( isValidLabel(lLabel) )
+		{
+			strcpy(symbolTable[symbolCount].label, lLabel);
+			symbolTable[symbolCount].address = instructionCount * 2
+												+ symbolTable[origIndex].address;
+			symbolCount++;
+		} else
+		{
+			//retun an error
 		}
+	}
 }
 
 void printSymbolTable()
