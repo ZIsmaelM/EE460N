@@ -6,6 +6,19 @@
 #include <stdbool.h>
 
 #define MAX_LINE_LENGTH 255
+#define MAX_LABEL_LEN 20
+#define MAX_SYMBOLS 255
+
+int symbolCount = 0;
+int instructionCount = 0;
+int origIndex;
+
+typedef struct {
+    int address;
+    char label[MAX_LABEL_LEN + 1];
+} TableEntry;
+TableEntry symbolTable[MAX_SYMBOLS];
+
 enum
 {
 	DONE, OK, EMPTY_LINE
@@ -22,46 +35,47 @@ bool isEmpty( char * stringPtr )
 int getOpcodeInt(char * opcode)
 {
 	// opcode[] always lowercase
-	if ( strcmp(opcode, "add"))
+
+	if ( strcmp(opcode, "add") == 0)
 		return 1;	// ??????
-	if ( strcmp(opcode, "and"))
+	if ( strcmp(opcode, "and") == 0)
 		return 5;	// ??????
 
 	// TODO: add BR codes
 
-	if ( strcmp(opcode, "halt"))
+	if ( strcmp(opcode, "halt") == 0)
 		return 15;
-	if ( strcmp(opcode, "jmp"))
+	if ( strcmp(opcode, "jmp") == 0)
 		return 12;
-	if ( strcmp(opcode, "jsrr"))
+	if ( strcmp(opcode, "jsrr") == 0)
 		return 8;
-	if ( strcmp(opcode, "ldb"))
+	if ( strcmp(opcode, "ldb") == 0)
 		return 2;
-	if ( strcmp(opcode, "ldw"))
+	if ( strcmp(opcode, "ldw") == 0)
 		return 6;
-	if ( strcmp(opcode, "lea"))
+	if ( strcmp(opcode, "lea") == 0)
 		return 14;
-	if ( strcmp(opcode, "nop"))
+	if ( strcmp(opcode, "nop") == 0)
 		return 0;
-	if ( strcmp(opcode, "not"))
+	if ( strcmp(opcode, "not") == 0)
 		return 9;
-	if ( strcmp(opcode, "ret"))
+	if ( strcmp(opcode, "ret") == 0)
 		return 12;
-	if ( strcmp(opcode, "lshf"))
+	if ( strcmp(opcode, "lshf") == 0)
 		return 13;
-	if ( strcmp(opcode, "rshfl"))
+	if ( strcmp(opcode, "rshfl") == 0)
 		return 13;
-	if ( strcmp(opcode, "rshfa"))
+	if ( strcmp(opcode, "rshfa") == 0)
 		return 13;
-	if ( strcmp(opcode, "rti"))
+	if ( strcmp(opcode, "rti") == 0)
 		return 8;
-	if ( strcmp(opcode, "stb"))
+	if ( strcmp(opcode, "stb") == 0)
 		return 3;
-	if ( strcmp(opcode, "stw"))
+	if ( strcmp(opcode, "stw") == 0)
 		return 7;
-	if ( strcmp(opcode, "trap"))
+	if ( strcmp(opcode, "trap") == 0)
 		return 15;
-	if ( strcmp(opcode, "xor"))
+	if ( strcmp(opcode, "xor") == 0)
 		return 9;
 
 	return -1;
@@ -175,7 +189,7 @@ int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 		return( EMPTY_LINE );
 
 	/* return if label */
-	if( isOpcode( lPtr ) == -1 && lPtr[0] != '.' )
+	if( isOpcode( lPtr ) == 0 && lPtr[0] != '.' )
 	{
 		*pLabel = lPtr;
 		if( !( lPtr = strtok( NULL, "\t\n ," ) ) ) return( OK );
@@ -221,18 +235,14 @@ int getArgInt(char * pArg)
 	return 0;
 }
 
-void shiftUp(int * value, int shiftNum)
-{
-	*value = *value << shiftNum;
-}
+
 int instCount = 0;
 
 int assembleInstruction(char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
 )
 {
-	int opcodeInt = getOpcodeInt(*pOpcode);
-	shiftUp(&opcodeInt, 12);
+	int opcodeInt = getOpcodeInt(*pOpcode) << 12;
 
 	int arg1Int = 0;
 	if( !isEmpty(*pArg1) ) {
@@ -268,11 +278,49 @@ int assembleInstruction(char ** pLabel, char
 }
 
 
+void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
+{
+	if( isOpcode(lOpcode) )
+		instructionCount++;
 
+	if( strcmp(lOpcode, ".orig") == 0 )
+	{	// TODO: if origin is not given a value
+		strcpy(symbolTable[symbolCount].label, lOpcode);
+		symbolTable[symbolCount].address = toNum(lArg1);
+		origIndex = symbolCount;
+		symbolCount++;
+	}
+	else if( strcmp(lOpcode, ".end") == 0 )
+	{
+		lRet = DONE;
+	}
+	else if( strcmp(lOpcode, ".fill") == 0 )
+	{
+		strcpy(symbolTable[symbolCount].label, lLabel);
+		symbolTable[symbolCount].address = toNum(lArg1);
+		symbolCount++;
+	}
+	else if( !isEmpty(lLabel) )
+	{
+		strcpy(symbolTable[symbolCount].label, lLabel);
+		symbolTable[symbolCount].address = instructionCount * 2
+											+ symbolTable[origIndex].address;
+		symbolCount++;
+		}
+}
+
+void printSymbolTable()
+{
+	printf("*************************************************\n");
+	for( int i = 0; i < symbolCount; i++)
+	{
+		printf("Index: %d\t Label: %s\t Address: 0x%.4X\n"
+			, i, symbolTable[i].label, symbolTable[i].address);
+	}
+	printf("*************************************************\n");
+}
 FILE *infile = NULL;
 FILE *outfile = NULL;
-
-
 int main(int argc, char* argv[]) {
 	printf("---START---\n");
 
@@ -290,8 +338,10 @@ int main(int argc, char* argv[]) {
 	printf("output file name = '%s'\n", oFileName);
 
 	// open the input and output files
-	infile = fopen(argv[1], "r");
-	outfile = fopen(argv[2], "w");
+	// infile = fopen(argv[1], "r"); //fopen("test2.txt", "r");
+	// outfile = fopen(argv[2], "w"); //fopen("results2.txt", "w");
+	infile = fopen("test2.txt", "r");
+	outfile = fopen("results2.txt", "w");
 	
 	if (!infile) {
 		printf("Error: Cannot open file %s\n", argv[1]);
@@ -307,20 +357,32 @@ int main(int argc, char* argv[]) {
 
 	int lRet;
 	int instr = 0;
+	bool firstPassDone = false;
 	do
 	{
 		lRet = readAndParse( infile, lLine, &lLabel,
 			&lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
 		if( lRet != DONE && lRet != EMPTY_LINE ) // DONE == 0 | OK == 1 | EMPTY_LINE == 2
 		{
-			instr = assembleInstruction( &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
+			if( !firstPassDone )
+				firstPass(lLabel, lOpcode, lArg1, &lRet);
+
+
+			//instr = assembleInstruction( &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
 		}
 
-		if( lOpcode[0] != '.') {
-			printf("instr %d: opcode: %s\t operand: %s\t operand: %s\t operand: %s\t operand: %s\t \n"
-				, instCount, lOpcode, lArg1, lArg2, lArg3, lArg4);
-			fprintf( outfile, "0x%.4X\n", instr);
-			instCount++;
+		// if( lOpcode[0] != '.') {
+		// 	printf("instr %d: opcode: %s\t operand: %s\t operand: %s\t operand: %s\t operand: %s\t \n"
+		// 		, instCount, lOpcode, lArg1, lArg2, lArg3, lArg4);
+		// 	fprintf( outfile, "0x%.4X\n", instr);
+		// 	instCount++;
+		// }
+
+		if( !firstPassDone && lRet == DONE)
+		{
+			printSymbolTable();
+			firstPassDone = true;
+			rewind(infile);
 		}
 	} while( lRet != DONE );
 

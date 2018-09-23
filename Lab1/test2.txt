@@ -1,0 +1,8 @@
+	.orig x3000
+C	ADD R0, R0, R1
+A	.fill #5
+	AND R1, R1, #5
+Z	AND R0, R1, A
+B	.fill #2
+
+	.end
