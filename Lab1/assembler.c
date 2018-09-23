@@ -19,6 +19,18 @@ typedef struct {
 } TableEntry;
 TableEntry symbolTable[MAX_SYMBOLS];
 
+typedef struct {
+	int val;
+    int address;
+    char label[MAX_LABEL_LEN + 1];
+    char op[MAX_LABEL_LEN + 1];
+    char arg1[MAX_LABEL_LEN + 1];
+    char arg2[MAX_LABEL_LEN + 1];
+    char arg3[MAX_LABEL_LEN + 1];
+    char arg4[MAX_LABEL_LEN + 1];
+} InstrStruct;
+InstrStruct instrTable[500];
+
 enum
 {
 	DONE, OK, EMPTY_LINE
@@ -270,8 +282,8 @@ int assembleInstruction(char ** pLabel, char
 	if( getArgType(*pArg3) == "imm")
 		bit5 = 32;
 
-	printf("instr %d: opcode: %d\t operand: %d\t operand: %d\t operand: %d\t operand: %d\t \n"
-				, instCount, opcodeInt, arg1Int, arg2Int, arg3Int, arg4Int);
+	// printf("instr %d: opcode: %d\t operand: %d\t operand: %d\t operand: %d\t operand: %d\t \n"
+	// 			, instCount, opcodeInt, arg1Int, arg2Int, arg3Int, arg4Int);
 
 	return opcodeInt + arg1Int + arg2Int + bit5 + arg3Int;
 
@@ -310,7 +322,7 @@ void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 	}
 	else if( strcmp(lOpcode, ".end") == 0 )
 	{
-		lRet = DONE;
+		*lRet = DONE;
 	}
 	else if( strcmp(lOpcode, ".fill") == 0 )
 	{
@@ -338,11 +350,24 @@ void printSymbolTable()
 	printf("*************************************************\n");
 	for( int i = 0; i < symbolCount; i++)
 	{
-		printf("Index: %d\t Label: %s\t Address: 0x%.4X\n"
-			, i, symbolTable[i].label, symbolTable[i].address);
+		printf("Index: %d\t Address: 0x%.4X\t Label: %s\n"
+			, i, symbolTable[i].address, symbolTable[i].label);
 	}
 	printf("*************************************************\n");
 }
+
+void printResult()
+{
+	printf("*************************************************\n");
+	for( int i = 0; i < instructionCount; i++)
+	{
+		printf("Index: %d   Hex: 0x%.4X   Label: %s   Opcode: %s   Arg1: %s   Arg2: %s   Arg3: %s   Arg4: %s\n"
+			, i, instrTable[i].val, instrTable[i].label, instrTable[i].op
+			, instrTable[i].arg1, instrTable[i].arg2, instrTable[i].arg3, instrTable[i].arg4);
+	}
+	printf("*************************************************\n");
+}
+
 FILE *infile = NULL;
 FILE *outfile = NULL;
 int main(int argc, char* argv[]) {
@@ -364,8 +389,8 @@ int main(int argc, char* argv[]) {
 	// open the input and output files
 	// infile = fopen(argv[1], "r"); //fopen("test2.txt", "r");
 	// outfile = fopen(argv[2], "w"); //fopen("results2.txt", "w");
-	infile = fopen("test2.txt", "r");
-	outfile = fopen("results2.txt", "w");
+	infile = fopen("test1.txt", "r");
+	outfile = fopen("results1.txt", "w");
 	
 	if (!infile) {
 		printf("Error: Cannot open file %s\n", argv[1]);
@@ -390,23 +415,35 @@ int main(int argc, char* argv[]) {
 		{
 			if( !firstPassDone )
 				firstPass(lLabel, lOpcode, lArg1, &lRet);
-
-
-			//instr = assembleInstruction( &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
+			else if( lOpcode[0] != '.')
+			{
+				instr = assembleInstruction( &lLabel, &lOpcode, &lArg1, &lArg2, &lArg3, &lArg4 );
+				/* Debug purposes */
+				instrTable[instructionCount].val = instr;
+				strcpy(instrTable[instructionCount].label, lLabel);
+				strcpy(instrTable[instructionCount].op, lOpcode);
+				strcpy(instrTable[instructionCount].arg1, lArg1);
+				strcpy(instrTable[instructionCount].arg2, lArg2);
+				strcpy(instrTable[instructionCount].arg3, lArg3);
+				strcpy(instrTable[instructionCount].arg4, lArg4);
+				instrTable[instructionCount].address = instructionCount * 2
+												+ symbolTable[origIndex].address;
+				fprintf( outfile, "0x%.4X\n", instr);
+				instructionCount++;
+			}
 		}
 
-		// if( lOpcode[0] != '.') {
-		// 	printf("instr %d: opcode: %s\t operand: %s\t operand: %s\t operand: %s\t operand: %s\t \n"
-		// 		, instCount, lOpcode, lArg1, lArg2, lArg3, lArg4);
-		// 	fprintf( outfile, "0x%.4X\n", instr);
-		// 	instCount++;
-		// }
-
+		if( firstPassDone && lRet == DONE)
+		{
+			printResult();
+		}
 		if( !firstPassDone && lRet == DONE)
 		{
 			printSymbolTable();
 			firstPassDone = true;
+			instructionCount = 0;
 			rewind(infile);
+			lRet = OK;
 		}
 	} while( lRet != DONE );
 
