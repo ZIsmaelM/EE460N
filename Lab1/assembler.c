@@ -1,3 +1,7 @@
+/*
+	Name 1: Ismael Marquez
+	UTEID 1: im6549
+*/
 #include <stdio.h> /* standard input/output library */
 #include <stdlib.h> /* Standard C Library */
 #include <string.h> /* String operations library */
@@ -384,7 +388,9 @@ char* getArgType(char * pArg)
 int getArgInt(char * pArg)
 {
 	/* return the value of the register */
-	if ( pArg[0] == 'r' && isdigit(pArg[1])) {
+	if ( pArg[0] == 'r' ) {
+		if( pArg[1] == '8' || pArg[1] == '9' || !isdigit(pArg[1]))
+			callError(4);
 		int num = pArg[1] - '0';
 		return num;
 	}
@@ -753,7 +759,8 @@ int assembleInstruction(char ** pLabel, char ** pOpcode, char ** pArg1,
 	/* RTI */
 	if( strcmp(*pOpcode, "rti") == 0 )
 	{
-		//printf("RTI\n");
+		if( !isEmpty(*pArg1) )
+			callError(4);
 		return opcodeShift;
 	}
 	if( strcmp(*pOpcode, "nop") == 0 )

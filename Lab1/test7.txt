@@ -1,9 +1,0 @@
-	.orig #12288
-	jsr x50
-	JSRR R6
-	JSR #4
-	jsrr r0
-	halt
-	trap x5
-	trap x25
-	.end

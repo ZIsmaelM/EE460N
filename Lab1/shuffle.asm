@@ -11,6 +11,7 @@
 	AND R3, R3, #0
 	ADD R4, R1, R2		;R4 contains the sum of the two 16-bit equivalents
 	STW R4, R3, DEST
+	HALT
 MASKA	.FILL xFF00
 MASKB	.FILL x00FF
 DEST	.FILL x3050

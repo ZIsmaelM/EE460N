@@ -1,6 +1,0 @@
-	.orig x5000
-	lshf r0,r0, #0
-	lshf r2, r1, x8
-	rshfl r1, r3, #2
-	rshfA r6, r7, xF
-	.end
