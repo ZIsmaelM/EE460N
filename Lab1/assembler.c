@@ -372,7 +372,7 @@ char* getArgType(char * pArg)
 	{
 		if( pArg[1] == '8' || pArg[1] == '9' )
 		{
-			//ERROR
+			callError(4);
 		}
 
 		return "reg";
@@ -427,9 +427,9 @@ int assembleFormat0(int opcodeInt, char ** pLabel, char
 			setBit5 = true;
 	}
 
-	if( arg3Int < 16 || arg3Int > 15)
+	if( arg3Int < -16 || arg3Int > 15)
 	{
-		//ERROR
+		callError(3);
 	}
 
 	// ???
@@ -476,7 +476,6 @@ int assembleFormat0(int opcodeInt, char ** pLabel, char
 		if( arg3Int < 0 )
 		{
 			arg3Int = arg3Int & 0xF;
-			printf("%d\n", arg3Int);
 			sign = 1 << 4;
 		}
 	}
@@ -493,10 +492,14 @@ int assembleFormat1(int opcodeInt, char ** pLabel, char
 
 	// DR or BR
 	int arg1Int = 0;
-	if( !isEmpty(*pArg1) ) {
+	if( !isEmpty(*pArg1) ) 
+	{
+		if( strcmp(*pOpcode, "ret") == 0 )
+			callError(4);
+
 		if( strcmp(*pOpcode, "jmp") == 0 )
 			arg1Int = getArgInt(*pArg1) << 6;
-		else
+		else 
 			arg1Int = getArgInt(*pArg1) << 9;
 	}
 	// BR
@@ -520,13 +523,12 @@ int assembleFormat1(int opcodeInt, char ** pLabel, char
 
 	if( arg3Int < -32 || arg3Int > 31 )
 	{
-		//ERROR
+		callError(3);
 	}
 
 	if( arg3Int < 0 )
 	{
 		arg3Int = arg3Int & 0x1F;
-		printf("%d\n", arg3Int);
 		sign = 1 << 5;
 	}
 
@@ -556,7 +558,7 @@ int assembleFormat2(int opcodeInt, char ** pLabel, char
 
 	if( arg3Int < 0 || arg3Int > 15)
 	{
-		//ERROR
+		callError(3);
 	}
 
 	// ???
@@ -595,7 +597,12 @@ int assembleFormat3(int opcodeInt, char ** pLabel, char
 			setBit11 = true;
 			symbolAddress = getSymbolAddress(*pArg1);
 			if( symbolAddress == -1 )
-				callError(1);
+			{
+				if( (*pArg2)[0] == 'x' || (*pArg2)[0] == '#' )
+					callError(4);
+				else
+					callError(1);
+			}
 
 			offset = (symbolAddress - (PC+1)) >> 1;
 
@@ -607,7 +614,7 @@ int assembleFormat3(int opcodeInt, char ** pLabel, char
 		bit11 = 1 << 11;
 		if( offset < -1024 || offset > 1023)
 		{
-			//ERROR
+			callError(3);
 		}
 	}
 
@@ -630,7 +637,15 @@ int assembleFormat4(int opcodeInt, char ** pLabel, char
 	if( !isEmpty(*pArg1) )
 		arg1Int = getArgInt(*pArg1);
 	if( strcmp(*pOpcode, "halt") == 0 )
+	{
+		if( !isEmpty(*pArg1) )
+			callError(4);
+
 		arg1Int = 0x25;
+	}
+
+	if( arg1Int < 0 || arg1Int > 255 )
+		callError(3);
 
 	return opcodeInt + arg1Int;
 }
@@ -658,7 +673,12 @@ int assembleFormat5(int opcodeInt, char ** pLabel, char
 		{
 			symbolAddress = getSymbolAddress(*pArg1);
 			if( symbolAddress == -1 )
-				callError(1);
+			{
+				if( (*pArg1)[0] == 'x' || (*pArg1)[0] == '#' )
+					callError(4);
+				else
+					callError(1);
+			}
 
 			offset = (symbolAddress - (PC+1)) >> 1;
 		}
@@ -666,7 +686,7 @@ int assembleFormat5(int opcodeInt, char ** pLabel, char
 
 	if( offset < -256 || offset > 255)
 	{
-		//ERROR
+		callError(3);
 	}
 
 	int arg2Int = 0;
@@ -674,7 +694,12 @@ int assembleFormat5(int opcodeInt, char ** pLabel, char
 	{
 		symbolAddress = getSymbolAddress(*pArg2);
 		if( symbolAddress == -1 )
+		{
+			if( (*pArg2)[0] == 'x' || (*pArg2)[0] == '#' )
+				callError(4);
+			else
 				callError(1);
+		}
 		offset = (symbolAddress - origAddress - 1) / 2;
 	}
 
@@ -724,7 +749,7 @@ int assembleInstruction(char ** pLabel, char ** pOpcode, char ** pArg1,
 
 	if( opcodeInt == -1 )
 		callError(2);
-	
+
 	/* RTI */
 	if( strcmp(*pOpcode, "rti") == 0 )
 	{
@@ -733,7 +758,8 @@ int assembleInstruction(char ** pLabel, char ** pOpcode, char ** pArg1,
 	}
 	if( strcmp(*pOpcode, "nop") == 0 )
 	{
-		//printf("NOP\n");
+		if( !isEmpty(*pArg1) )
+			callError(4);
 		return 0;
 	}
 
@@ -818,6 +844,8 @@ void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 	{	// TODO: if origin is not given a value
 		strcpy(symbolTable[symbolCount].label, lOpcode);
 		int address = toNum(lArg1);
+		if( address < 0 || address % 2 > 0 || address == '\0')
+			callError(3);
 		symbolTable[symbolCount].address = address;
 		origAddress = address;
 		origIndex = symbolCount;
@@ -836,6 +864,10 @@ void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 	}
 	else if( !isEmpty(lLabel) )
 	{
+		// does label already exist?
+		if( getSymbolAddress(lLabel) != -1 )
+			callError(4);
+
 		if( isValidLabel(lLabel) )
 		{
 			strcpy(symbolTable[symbolCount].label, lLabel);
@@ -875,7 +907,6 @@ void printResult()
 FILE *infile = NULL;
 FILE *outfile = NULL;
 int main(int argc, char* argv[]) {
-	printf("---START---\n");
 
 	// parse the command line arguments
 	char *prgName = NULL;
@@ -886,13 +917,9 @@ int main(int argc, char* argv[]) {
 	iFileName = argv[1];
 	oFileName = argv[2];
 
-	printf("program name = '%s'\n", prgName);
-	printf("input file name = '%s'\n", iFileName);
-	printf("output file name = '%s'\n", oFileName);
-
 	// open the input and output files
-	infile = fopen(argv[1], "r"); //fopen("test2.txt", "r");
-	outfile = fopen(argv[2], "w"); //fopen("results2.txt", "w");
+	infile = fopen(argv[1], "r");
+	outfile = fopen(argv[2], "w");
 	// infile = fopen("test1.txt", "r");
 	// outfile = fopen("results1.txt", "w");
 	
@@ -925,31 +952,30 @@ int main(int argc, char* argv[]) {
 				
 				if( lRet != DONE )
 				{
-					/* Debug purposes */
-					instrTable[instrCount].val = instr;
-					strcpy(instrTable[instrCount].label, lLabel);
-					strcpy(instrTable[instrCount].op, lOpcode);
-					strcpy(instrTable[instrCount].arg1, lArg1);
-					strcpy(instrTable[instrCount].arg2, lArg2);
-					strcpy(instrTable[instrCount].arg3, lArg3);
-					strcpy(instrTable[instrCount].arg4, lArg4);
-					instrTable[instrCount].address = instrCount * 2
-													+ symbolTable[origIndex].address;
+					// /* Debug purposes */
+					// instrTable[instrCount].val = instr;
+					// strcpy(instrTable[instrCount].label, lLabel);
+					// strcpy(instrTable[instrCount].op, lOpcode);
+					// strcpy(instrTable[instrCount].arg1, lArg1);
+					// strcpy(instrTable[instrCount].arg2, lArg2);
+					// strcpy(instrTable[instrCount].arg3, lArg3);
+					// strcpy(instrTable[instrCount].arg4, lArg4);
+					// instrTable[instrCount].address = instrCount * 2
+					// 								+ symbolTable[origIndex].address;
 					
 					fprintf( outfile, "0x%.4X\n", instr);
 					instrCount++;
-					printf("PC: %.4x\n", PC);
 				}
 			}
 		}
 
-		if( firstPassDone && lRet == DONE)
-		{
-			printResult();
-		}
+		// if( firstPassDone && lRet == DONE)
+		// {
+		// 	printResult();
+		// }
 		if( !firstPassDone && lRet == DONE)
 		{
-			printSymbolTable();
+			//printSymbolTable();
 			firstPassDone = true;
 			PC = origAddress;
 			instrCount = 0;
@@ -958,9 +984,6 @@ int main(int argc, char* argv[]) {
 			lRet = OK;
 		}
 	} while( lRet != DONE );
-
-
-	/* TODO: Translate the input file and write to the output file */
 
 	fclose(infile);
 	fclose(outfile);
