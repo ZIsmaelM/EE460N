@@ -1,0 +1,34 @@
+	.orig x3000
+	add r0, r0, #0
+	add r0, r0, #-16
+	add r0, r0, #-1
+	add r0, r0, #15
+	and r0, r0, #0
+	and r0, r0, #-16
+	and r0, r0, #-1
+	and r0, r0, #15
+	xor r0, r0, #0
+	xor r0, r0, #-16
+	xor r0, r0, #-1
+	xor r0, r0, #15
+	LDB r0, r0, #5
+	LDB r0, r0, #-32
+	LDB r0, r0, #-1
+	LDW r0, r0, #5
+	LDW r0, r0, #-32
+	LDW r0, r0, #-1
+	STB r0, r0, #5
+	STB r0, r0, #-32
+	STB r0, r0, #-1
+	STW r0, r0, #5
+	STW r0, r0, #-32
+	STW r0, r0, #-1
+	lshf r0, r0, #0
+	lshf r0, r0, #15
+	rshfl r0, r0, #15
+	rshfl r0, r0, #1
+	rshfa r0, r0, #15
+	rshfa r0, r0, #0
+	.end
+	
+	

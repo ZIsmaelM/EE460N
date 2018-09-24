@@ -4,6 +4,7 @@
 #include <ctype.h> /* Library for useful character operations */
 #include <limits.h> /* Library for definitions of common variable type characteristics */
 #include <stdbool.h>
+#include <stdint.h>
 
 #define MAX_LINE_LENGTH 255
 #define MAX_LABEL_LEN 20
@@ -50,6 +51,11 @@ enum
 	DONE, OK, EMPTY_LINE
 };
 
+void callError(int code)
+{
+	exit(code);
+}
+
 bool isEmpty( char * stringPtr )
 {
 	if(stringPtr[0] == '\0')
@@ -85,41 +91,49 @@ void getCC(char ** pOpcode, int * n, int * z, int * p)
 	int opLength = strlen(*pOpcode);
 	if( opLength == 2 || opLength == 5)
 	{
-		*n = *z = *p = 1;
+		*n = 1;
+		*z = 1;
+		*p = 1;
 	}
 	else if( opLength == 3 )
 	{
 		if( (*pOpcode)[2] == 'n' )
 		{
 			*n = 1;
-			*z = *p = 0;
+			*z = 0;
+			*p = 0;
 		}
 		else if( (*pOpcode)[2] == 'z' )
 		{
 			*z = 1;
-			*n = *p = 0;
+			*n = 0;
+			*p = 0;
 		}
 		else if( (*pOpcode)[2] == 'p' )
 		{
 			*p = 1;
-			*n = *z = 0;
+			*n = 0;
+			*z = 0;
 		}
 	}
 	else if( opLength == 4 )
 	{
 		if( (*pOpcode)[2] == 'n' &&  (*pOpcode)[3] == 'z' )
 		{
-			*n = *z = 1;
+			*n = 1;
+			*z = 1;
 			*p = 0;
 		}
 		else if( (*pOpcode)[2] == 'n' &&  (*pOpcode)[3] == 'p' )
 		{
-			*n = *p = 1;
+			*n = 1;
+			*p = 1;
 			*z = 0;
 		}
 		else if( (*pOpcode)[2] == 'z' &&  (*pOpcode)[3] == 'p' )
 		{
-			*z = *p = 0;
+			*z = 0;
+			*p = 0;
 			*n = 0;
 		}
 	}
@@ -354,8 +368,15 @@ int readAndParse( FILE * pInfile, char * pLine, char ** pLabel, char
 
 char* getArgType(char * pArg)
 {
-	if ( pArg[0] == 'r' && isdigit(pArg[1]))
+	if ( strlen(pArg) == 2 && pArg[0] == 'r' && isdigit(pArg[1]))
+	{
+		if( pArg[1] == '8' || pArg[1] == '9' )
+		{
+			//ERROR
+		}
+
 		return "reg";
+	}
 	if ( pArg[0] == '#' || pArg[0] == 'x')
 		return "num";
 }
@@ -381,6 +402,7 @@ int assembleFormat0(int opcodeInt, char ** pLabel, char
 {
 	bool setBit5 = false;
 	int arg4Int = 0;
+	int sign = 0;
 
 	// DR
 	int arg1Int = 0;
@@ -403,6 +425,11 @@ int assembleFormat0(int opcodeInt, char ** pLabel, char
 		arg3Int = getArgInt(*pArg3);
 		if( getArgType(*pArg3) == "num")
 			setBit5 = true;
+	}
+
+	if( arg3Int < 16 || arg3Int > 15)
+	{
+		//ERROR
 	}
 
 	// ???
@@ -443,8 +470,17 @@ int assembleFormat0(int opcodeInt, char ** pLabel, char
 
 	int bit5 = 0;
 	if( setBit5 )
-		bit5 = 1 << 6;
-	return opcodeInt + arg1Int + arg2Int + bit5 + arg3Int + arg4Int;
+	{
+		bit5 = 1 << 5;
+		// bootleg af
+		if( arg3Int < 0 )
+		{
+			arg3Int = arg3Int & 0xF;
+			printf("%d\n", arg3Int);
+			sign = 1 << 4;
+		}
+	}
+	return opcodeInt + arg1Int + arg2Int + bit5 + arg3Int + arg4Int + sign;
 }
 
 /* LDB, LDW, STB, STW, JMP, RET */
@@ -453,6 +489,7 @@ int assembleFormat1(int opcodeInt, char ** pLabel, char
 )
 {
 	int arg4Int = 0;
+	int sign = 0;
 
 	// DR or BR
 	int arg1Int = 0;
@@ -481,35 +518,22 @@ int assembleFormat1(int opcodeInt, char ** pLabel, char
 		arg4Int = getArgInt(*pArg4);
 	}
 
-	// // store result in register
-	// if( strcmp(*pOpcode, "ldb") == 0 )
-	// {
-	// 	regs[arg1Int] = *(regs[arg2Int] + arg3Int);
-	// 	setCC(arg1Int);
-	// }
-	// if( strcmp(*pOpcode, "ldw") == 0 )
-	// {	
-	// 	regs[arg1Int] = *(regs[arg2Int] + (arg3Int*2));
-	// 	setCC(arg1Int);
-	// }
+	if( arg3Int < -32 || arg3Int > 31 )
+	{
+		//ERROR
+	}
 
-	// int storeAddress;
-	// if( strcmp(*pOpcode, "stb") == 0 )
-	// {
-	// 	storeAddress = regs[arg2Int] + arg3Int;
-	// 	*storeAddress = regs[arg1Int];
-	// }
+	if( arg3Int < 0 )
+	{
+		arg3Int = arg3Int & 0x1F;
+		printf("%d\n", arg3Int);
+		sign = 1 << 5;
+	}
 
-	// if( strcmp(*pOpcode, "stw") == 0 )
-	// {
-	// 	storeAddress = regs[arg2Int] + (arg3Int*2);
-	// 	*storeAddress = regs[arg1Int];
-	// }
-
-
-	return opcodeInt + arg1Int + arg2Int + arg3Int + arg4Int;
+	return opcodeInt + arg1Int + arg2Int + arg3Int + arg4Int + sign;
 }
 
+/* LSHF, RSHFL, RSHFA */
 int assembleFormat2(int opcodeInt, char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
 )
@@ -527,7 +551,12 @@ int assembleFormat2(int opcodeInt, char ** pLabel, char
 	// amount4
 	int arg3Int = 0;
 	if( !isEmpty(*pArg3) ) {
-		arg3Int = getArgInt(*pArg3);
+		arg3Int = abs(getArgInt(*pArg3));
+	}
+
+	if( arg3Int < 0 || arg3Int > 15)
+	{
+		//ERROR
 	}
 
 	// ???
@@ -544,28 +573,54 @@ int assembleFormat2(int opcodeInt, char ** pLabel, char
 	return opcodeInt + arg1Int + arg2Int + arg3Int + arg4Int;
 }
 
+/* JSR, JSRR */
 int assembleFormat3(int opcodeInt, char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
 )
 {
+	bool setBit11;
 	int bit11 = 0;
-	// BR or PCoffset9
+	int symbolAddress;
+	int offset = 0;
+
+	// BR or PCoffset11
 	int arg1Int = 0;
 	if( !isEmpty(*pArg1) ) {
-		if( getArgType(*pArg1) == "num")
-		{
-			arg1Int = getArgInt(*pArg1);
-			bit11 = 1 << 11;
-		}
-		else
+		if( getArgType(*pArg1) == "reg")
 		{
 			arg1Int = getArgInt(*pArg1) << 6;
 		}
+		else
+		{
+			setBit11 = true;
+			symbolAddress = getSymbolAddress(*pArg1);
+			if( symbolAddress == -1 )
+				callError(1);
+
+			offset = (symbolAddress - (PC+1)) >> 1;
+
+		}
 	}
 
-	return opcodeInt + arg1Int + bit11;
+	if( setBit11 )
+	{
+		bit11 = 1 << 11;
+		if( offset < -1024 || offset > 1023)
+		{
+			//ERROR
+		}
+	}
+
+	if( offset < 0 )
+	{
+		offset = offset & 0x7FF;
+		arg1Int = 1 << 10;
+	}
+
+	return opcodeInt + arg1Int + bit11 + offset;
 }
 
+/* TRAP, HALT */
 int assembleFormat4(int opcodeInt, char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
 )
@@ -580,6 +635,7 @@ int assembleFormat4(int opcodeInt, char ** pLabel, char
 	return opcodeInt + arg1Int;
 }
 
+/* LEA, BR */
 int assembleFormat5(int opcodeInt, char ** pLabel, char
 ** pOpcode, char ** pArg1, char ** pArg2, char ** pArg3, char ** pArg4
 )
@@ -601,30 +657,42 @@ int assembleFormat5(int opcodeInt, char ** pLabel, char
 		else
 		{
 			symbolAddress = getSymbolAddress(*pArg1);
-			printf("%.4x\t", symbolAddress);
-			printf("%.4x\t", PC);
+			if( symbolAddress == -1 )
+				callError(1);
+
 			offset = (symbolAddress - (PC+1)) >> 1;
-			// if( symbolAddress < PC )
-			// 	offset = -offset;
-			printf("%d\n", offset);
 		}
+	}
+
+	if( offset < -256 || offset > 255)
+	{
+		//ERROR
 	}
 
 	int arg2Int = 0;
 	if( !isEmpty(*pArg2) )
 	{
 		symbolAddress = getSymbolAddress(*pArg2);
+		if( symbolAddress == -1 )
+				callError(1);
 		offset = (symbolAddress - origAddress - 1) / 2;
 	}
 
 	if( strcmp(*pOpcode, "lea") != 0 )
 	{
 		getCC(pOpcode, &n, &z, &p);
-		printf("n: %d\t z: %d\t p: %d\t", n, z, p);
+		//printf("n: %d\t z: %d\t p: %d\n", n, z, p);
 	}
 	
-	// printf("%d\n", offset);	
-	return opcodeInt + (n << 11) + (z << 10) + (p << 10) + arg1Int + offset;
+	// bootleg af
+	if( offset < 0 )
+	{
+		offset = offset & 0xFF;
+		arg1Int = 1 << 8;
+	}
+
+	//printf("%d\n", opcodeInt + n + z + p + arg1Int + offset);
+	return opcodeInt + (n << 11) + (z << 10) + (p << 9) + arg1Int + offset;
 }
 
 int instCount = 0;
@@ -654,6 +722,9 @@ int assembleInstruction(char ** pLabel, char ** pOpcode, char ** pArg1,
 		return result;
 	}
 
+	if( opcodeInt == -1 )
+		callError(2);
+	
 	/* RTI */
 	if( strcmp(*pOpcode, "rti") == 0 )
 	{
@@ -730,6 +801,8 @@ bool isValidLabel(char * pLabel)
 		return false;
 	if (strcmp(pLabel, "puts") == 0)
 		return false;
+	if (isOpcode(pLabel))
+		return false;
 
 	return true;
 }
@@ -771,7 +844,7 @@ void firstPass(char * lLabel, char * lOpcode, char * lArg1, int * lRet)
 			symbolCount++;
 		} else
 		{
-			//retun an error
+			callError(4);
 		}
 	}
 }
