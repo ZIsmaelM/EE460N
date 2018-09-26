@@ -452,6 +452,9 @@ int binaryToInt(char* string) {
 
   return sum;
 }
+
+
+
 int fetch() {
   MAR = PC;
   int instrPtr = PC; 
@@ -473,14 +476,33 @@ int decode() {
   else
     BEN = 0;
 
-  INSTR.opcode = binaryToInt(INSTR.instrReg && xF000);
-  return getNextState(INSTR.opcode)
+  return binaryToInt(INSTR.instrReg && xF000);
+}
+
+int execute(int state)
+{
+	if ( state == 1 ) {} // ADD
+	if ( state == 5 ) {} // AND
+	if ( state == 9 ) {} // NOT, XOR
+	if ( state == 2 ) {} // LDB
+	if ( state == 6 ) {} // LDW
+	if ( state == 3 ) {} // STB
+	if ( state == 7 ) {} // STW
+	if ( state == 0 ) {} // BR
+	if ( state == 4 ) {} // JSR, JSRR
+	if ( state == 12 ) {} // JMP, RET
+	if ( state == 13 ) {} // LSHF, RSHFL, RSHFA
+	if ( state == 15 ) {} // TRAP, HALT
+	if ( state == 14 ) {} // LEA
+
+	return -1;
 }
 void process_instruction(){
 
   Instruction_Data INSTR;
   INSTR.instrReg = fetch();
   intToBinary(INSTR.instrReg, INSTR.binaryString);
+  INSTR.opcode = decode();
 
 
   /*  function: process_instruction
