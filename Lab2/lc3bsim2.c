@@ -406,9 +406,83 @@ int main(int argc, char *argv[]) {
 
 /***************************************************************/
 
+// Struct for holding information about the current instruction
+typedef struct Instruction_Data_Struct{
 
+  char binaryString[16];
+  int instrReg,
+      opcode,
+      operand1,
+      operand2,
+      operand3,
 
+} Instruction_Data;
+
+int MAR;
+int MDR;
+int BEN;
+
+void intToBinary(int val, char* string) {
+  int valDiv;
+  int valMod;
+
+  for (int i = 0; i < 16; i++) {
+    valDiv = val / 2;
+    valMod = val / 2;
+
+    if (valMod == 1)
+      string[i] = 1;
+    else
+      string[i] = 0;
+
+    val = valDiv;
+  }
+}
+
+int binaryToInt(char* string) {
+  int numDigits = strlen(string);
+  int val = 1;
+  int sum = 0;
+
+  for (int i = numDigits; i > 0; i++) {
+    if (string[i] == '1')
+      sum += val;
+    val *= 2;
+  }
+
+  return sum;
+}
+int fetch() {
+  MAR = PC;
+  int instrPtr = PC; 
+  PC += 2;
+
+  // TODO: check ready bit
+  MDR = MAR
+
+  return MEMORY[instrPtr];
+}
+
+int decode() {
+
+  // Set BEN signal
+  if ((INSTR.binaryString[11] && CURRENT_LATCHES.N)
+    || (INSTR.binaryString[10] && CURRENT_LATCHES.Z)
+    || (INSTR.binaryString[9] && CURRENT_LATCHES.P))
+    BEN = 1;
+  else
+    BEN = 0;
+
+  INSTR.opcode = binaryToInt(INSTR.instrReg && xF000);
+  return getNextState(INSTR.opcode)
+}
 void process_instruction(){
+
+  Instruction_Data INSTR;
+  INSTR.instrReg = fetch();
+  intToBinary(INSTR.instrReg, INSTR.binaryString);
+
+
   /*  function: process_instruction
    *  
    *    Process one instruction at a time  
