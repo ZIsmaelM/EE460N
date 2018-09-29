@@ -376,6 +376,7 @@ int main(int argc, char *argv[]) {
 
   printf("LC-3b Simulator\n\n");
 
+  //argv[1] = "test0.txt";
   initialize(argv[1], argc - 1);
 
   if ( (dumpsim_file = fopen( "dumpsim", "w" )) == NULL ) {
@@ -409,61 +410,95 @@ int main(int argc, char *argv[]) {
 // Struct for holding information about the current instruction
 typedef struct Instruction_Data_Struct{
 
-  char binaryString[16];
+  char binaryString[17];
   int instrReg,
       opcode,
       operand1,
       operand2,
-      operand3,
+      operand3;
 
 } Instruction_Data;
 
+Instruction_Data INSTR;
 int MAR;
 int MDR;
 int BEN;
 
+// converts an int into a string of binary characters (prints as inverse of value)
 void intToBinary(int val, char* string) {
   int valDiv;
   int valMod;
 
-  for (int i = 0; i < 16; i++) {
-    valDiv = val / 2;
-    valMod = val / 2;
+  for (int i = 0; i <= 15; i++) {
+    valDiv = val >> 1;
+    valMod = val % 2;
 
-    if (valMod == 1)
-      string[i] = 1;
+    if (valMod != 0)
+      string[i] = '1';
     else
-      string[i] = 0;
+      string[i] = '0';
 
     val = valDiv;
   }
+  string[16] = '\0';
+
+  // printf("binary: %s\n", string);
+  // for(int i = 15; i >= 0; i--) {
+  // 	printf("%c", string[i]);
+  // }
+  // printf("\n");
+
 }
 
+// converts a string of binary characters into an int
 int binaryToInt(char* string) {
   int numDigits = strlen(string);
   int val = 1;
   int sum = 0;
+  int isNeg = string[15] - '0';
 
-  for (int i = numDigits; i > 0; i++) {
-    if (string[i] == '1')
-      sum += val;
+  for (int i = 0; i < numDigits; i++) {
+    if (isNeg) {
+    	if (string[i] == '0')
+    		sum += val;
+    } else {
+    	if (string[i] == '1')
+    		sum += val;
+    }
     val *= 2;
+  }
+  if (isNeg) {
+  	sum += 1;
+  	sum = -sum;
   }
 
   return sum;
 }
 
+void opADD() {
 
+}
 
+// get the instruction from memory
+/* MEMORY[A][0] stores the least significant byte of word at word address A
+   MEMORY[A][1] stores the most significant byte of word at word address A 
+*/
 int fetch() {
-  MAR = PC;
-  int instrPtr = PC; 
-  PC += 2;
+  MAR = CURRENT_LATCHES.PC;
+  int instrPtr = CURRENT_LATCHES.PC; 
+  CURRENT_LATCHES.PC += 2;
 
   // TODO: check ready bit
-  MDR = MAR
+  MDR = MAR;
+  int lower8 = MEMORY[instrPtr>>1][0];
+  int upper8 = MEMORY[instrPtr>>1][1];
+  int instr = (upper8 << 8) + lower8;
 
-  return MEMORY[instrPtr];
+  // printf("0x%.4X:		0x%.4X\n", instrPtr, instr);
+  // printf("[7-0]: %d\n", lower8);
+  // printf("[15-8]: %d\n", upper8);
+
+  return instr;
 }
 
 int decode() {
@@ -476,35 +511,68 @@ int decode() {
   else
     BEN = 0;
 
-  return binaryToInt(INSTR.instrReg && xF000);
+  return INSTR.instrReg && 0xF000;	//binaryToInt(INSTR.instrReg && 0xF000);
 }
 
 int execute(int state)
 {
-	if ( state == 1 ) {} // ADD
-	if ( state == 5 ) {} // AND
-	if ( state == 9 ) {} // NOT, XOR
-	if ( state == 2 ) {} // LDB
-	if ( state == 6 ) {} // LDW
-	if ( state == 3 ) {} // STB
-	if ( state == 7 ) {} // STW
-	if ( state == 0 ) {} // BR
-	if ( state == 4 ) {} // JSR, JSRR
-	if ( state == 12 ) {} // JMP, RET
-	if ( state == 13 ) {} // LSHF, RSHFL, RSHFA
-	if ( state == 15 ) {} // TRAP, HALT
-	if ( state == 14 ) {} // LEA
+	// ADD
+	if ( state == 1 ) {
+		opADD();
+	}
+	// AND
+	if ( state == 5 ) {
+
+	}
+	// NOT, XOR
+	if ( state == 9 ) {}
+	// LDB 
+	if ( state == 2 ) {}
+	// LDW 
+	if ( state == 6 ) {}
+	// STB
+	if ( state == 3 ) {} 
+	// STW
+	if ( state == 7 ) {} 
+	// BR
+	if ( state == 0 ) {} 
+	// JSR, JSRR
+	if ( state == 4 ) {} 
+	// JMP, RET
+	if ( state == 12 ) {} 
+	// LSHF, RSHFL, RSHFA
+	if ( state == 13 ) {} 
+	// TRAP, HALT
+	if ( state == 15 ) {} 
+	// LEA
+	if ( state == 14 ) {} 
 
 	return -1;
 }
+
+void printDebug(Instruction_Data INSTR) {
+	printf("Instr Int: %d\n", INSTR.instrReg);
+	printf("Instr Hex: 0x%.4X\n", INSTR.instrReg);
+	
+	printf("Instr Binary: ");
+	for(int i = 15; i >= 0; i--) {
+		printf("%c", INSTR.binaryString[i]);
+		if(i%4 == 0)
+			printf(" ");
+	}
+	printf("\n");
+}
+
 void process_instruction(){
 
   Instruction_Data INSTR;
-  INSTR.instrReg = fetch();
+  INSTR.instrReg = fetch();  
   intToBinary(INSTR.instrReg, INSTR.binaryString);
+
+  printDebug(INSTR);
   INSTR.opcode = decode();
 
-
+  CURRENT_LATCHES.PC = 0x0000;
   /*  function: process_instruction
    *  
    *    Process one instruction at a time  
