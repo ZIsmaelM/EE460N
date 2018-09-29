@@ -441,13 +441,6 @@ void intToBinary(int val, char* string) {
     val = valDiv;
   }
   string[16] = '\0';
-
-  // printf("binary: %s\n", string);
-  // for(int i = 15; i >= 0; i--) {
-  // 	printf("%c", string[i]);
-  // }
-  // printf("\n");
-
 }
 
 // converts a string of binary characters into an int
@@ -455,7 +448,7 @@ int binaryToInt(char* string) {
   int numDigits = strlen(string);
   int val = 1;
   int sum = 0;
-  int isNeg = string[15] - '0';
+  int isNeg = string[numDigits-1] - '0';
 
   for (int i = 0; i < numDigits; i++) {
     if (isNeg) {
@@ -467,6 +460,7 @@ int binaryToInt(char* string) {
     }
     val *= 2;
   }
+
   if (isNeg) {
   	sum += 1;
   	sum = -sum;
@@ -475,7 +469,76 @@ int binaryToInt(char* string) {
   return sum;
 }
 
-void opADD() {
+void getRegString(Instruction_Data INSTR, char * reg, int regIndex) {
+  int regSize = 3;
+
+  for (int i = 0; i < regSize; i++) {
+    reg[i] = INSTR.binaryString[regIndex];
+    regIndex--;
+  }
+  reg[3] = '\0';
+}
+
+void setCC(int result) {
+  if (result > 0) {
+    NEXT_LATCHES.P = 1;
+    NEXT_LATCHES.N = 0;
+    NEXT_LATCHES.Z = 0;
+  }
+  else if (result == 0) {
+    NEXT_LATCHES.P = 0;
+    NEXT_LATCHES.N = 1;
+    NEXT_LATCHES.Z = 0;
+  }
+  else if (result < 0) {
+    NEXT_LATCHES.P = 0;
+    NEXT_LATCHES.N = 0;
+    NEXT_LATCHES.Z = 1;
+  }
+}
+void opADD(Instruction_Data INSTR) {
+
+  // get DR
+  INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
+  // get SR1
+  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
+  // get imm5 or SR2
+  int op3 = (INSTR.instrReg & 0x0007);
+  if (INSTR.binaryString[5] == '0')
+    op3 = CURRENT_LATCHES.REGS[op3];
+  else
+    op3 = (INSTR.instrReg & 0x001F);
+
+  int result = CURRENT_LATCHES.REGS[INSTR.operand2] + op3;
+  setCC(result);
+  NEXT_LATCHES.REGS[INSTR.operand1] = result;//INSTR.operand3;
+  // printf("Op1: %d\n", INSTR.operand1);
+  // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
+  // printf("Op3: %d\n", op3);
+  // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
+
+}
+
+void opAND(Instruction_Data INSTR) {
+
+  // get DR
+  INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
+  // get SR1
+  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
+  // get imm5 or SR2
+  int op3 = (INSTR.instrReg & 0x0007);
+  if (INSTR.binaryString[5] == '0')
+    op3 = CURRENT_LATCHES.REGS[op3];
+  else
+    op3 = (INSTR.instrReg & 0x001F);
+
+  int result = INSTR.operand2 & op3;
+  setCC(result);
+  NEXT_LATCHES.REGS[INSTR.operand1] = result;//INSTR.operand3;
+  // printf("Op1: %d\n", INSTR.operand1);
+  // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
+  // printf("Op3: %d\n", op3);
+  // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
 
 }
 
@@ -486,7 +549,7 @@ void opADD() {
 int fetch() {
   MAR = CURRENT_LATCHES.PC;
   int instrPtr = CURRENT_LATCHES.PC; 
-  CURRENT_LATCHES.PC += 2;
+  NEXT_LATCHES.PC = CURRENT_LATCHES.PC + 2;
 
   // TODO: check ready bit
   MDR = MAR;
@@ -501,28 +564,28 @@ int fetch() {
   return instr;
 }
 
-int decode() {
+int decode(Instruction_Data INSTR) {
 
   // Set BEN signal
-  if ((INSTR.binaryString[11] && CURRENT_LATCHES.N)
-    || (INSTR.binaryString[10] && CURRENT_LATCHES.Z)
-    || (INSTR.binaryString[9] && CURRENT_LATCHES.P))
+  if ((INSTR.binaryString[11] - '0' & CURRENT_LATCHES.N)
+    || (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z)
+    || (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P))
     BEN = 1;
   else
     BEN = 0;
 
-  return INSTR.instrReg && 0xF000;	//binaryToInt(INSTR.instrReg && 0xF000);
+  return (INSTR.instrReg & 0xF000) >> 12;
 }
 
-int execute(int state)
+int execute(Instruction_Data INSTR, int state)
 {
 	// ADD
 	if ( state == 1 ) {
-		opADD();
+		opADD(INSTR);
 	}
 	// AND
 	if ( state == 5 ) {
-
+    opAND(INSTR);
 	}
 	// NOT, XOR
 	if ( state == 9 ) {}
@@ -551,6 +614,7 @@ int execute(int state)
 }
 
 void printDebug(Instruction_Data INSTR) {
+  printf("PC: 0x%.4X\n", CURRENT_LATCHES.PC);
 	printf("Instr Int: %d\n", INSTR.instrReg);
 	printf("Instr Hex: 0x%.4X\n", INSTR.instrReg);
 	
@@ -568,11 +632,13 @@ void process_instruction(){
   Instruction_Data INSTR;
   INSTR.instrReg = fetch();  
   intToBinary(INSTR.instrReg, INSTR.binaryString);
-
   printDebug(INSTR);
-  INSTR.opcode = decode();
+  INSTR.opcode = decode(INSTR);
+  int foo = execute(INSTR, INSTR.opcode);
+  printf("%d\n", INSTR.opcode);
 
-  CURRENT_LATCHES.PC = 0x0000;
+  if (INSTR.instrReg == 0xF025)
+    NEXT_LATCHES.PC = 0x0000;
   /*  function: process_instruction
    *  
    *    Process one instruction at a time  
