@@ -511,12 +511,12 @@ void opADD(Instruction_Data INSTR) {
 
   int result = CURRENT_LATCHES.REGS[INSTR.operand2] + op3;
   setCC(result);
+
   NEXT_LATCHES.REGS[INSTR.operand1] = result;//INSTR.operand3;
   // printf("Op1: %d\n", INSTR.operand1);
   // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
   // printf("Op3: %d\n", op3);
   // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
-
 }
 
 void opAND(Instruction_Data INSTR) {
@@ -539,7 +539,84 @@ void opAND(Instruction_Data INSTR) {
   // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
   // printf("Op3: %d\n", op3);
   // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
+}
 
+void opXORNOT(Instruction_Data INSTR) {
+  // get DR
+  INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
+  // get SR1
+  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
+  // get imm5 or SR2
+  int result;
+  int op3 = (INSTR.instrReg & 0x0007);
+  if (INSTR.binaryString[5] == '0') {
+    op3 = CURRENT_LATCHES.REGS[op3];
+    result = CURRENT_LATCHES.REGS[INSTR.operand2] + op3;
+  }
+  else {
+    result = ~CURRENT_LATCHES.REGS[INSTR.operand2];
+  }
+
+  setCC(result);
+  NEXT_LATCHES.REGS[INSTR.operand1] = result;//INSTR.operand3;
+  // printf("Op1: %d\n", INSTR.operand1);
+  // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
+  // printf("Op3: %d\n", op3);
+  // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
+}
+
+void opLDB(Instruction_Data INSTR) {
+  // DR = SEXT(mem[BaseR + SEXT(boffset6)]);
+
+  // get DR
+  INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
+  // get SR1
+  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
+  // get offset6
+  INSTR.operand3 = (INSTR.instrReg & 0x003F);
+
+  int memIndex = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2])
+                  + Low16bits(INSTR.operand3);
+  int memLower8 = MEMORY[memIndex>>1][0];
+  // int memUpper8 = MEMORY[memIndex>>1][1];
+
+  int result = memLower8;
+  if (memLower8 >= 128)
+    result += 0xFF00 + memLower8;
+
+  setCC(result);
+  NEXT_LATCHES.REGS[INSTR.operand1] = result;//INSTR.operand3;
+  // printf("Op1: %d\n", INSTR.operand1);
+  // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
+  // printf("Op3: %d\n", op3);
+  // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
+}
+
+void opSTB(Instruction_Data INSTR) {
+  // DR = SEXT(mem[BaseR + SEXT(boffset6)]);
+
+  // get SR
+  INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
+  // get BR
+  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
+  // get offset6
+  INSTR.operand3 = (INSTR.instrReg & 0x003F);
+
+  printf("Op3: 0x%.4X\n", INSTR.operand3);
+  if (INSTR.operand3 > 31) {
+    printf("PASS\n");
+    INSTR.operand3 = ~INSTR.operand3 + 1;
+  }
+  printf("Op3: 0x%.4X\n", INSTR.operand3);
+
+  int memIndex = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2])
+                  + Low16bits(INSTR.operand3));
+  
+  printf("index: 0x%.4X\n", memIndex);
+  MEMORY[memIndex >> 1][0] = CURRENT_LATCHES.REGS[INSTR.operand1];
+  // printf("Op1: %d\n", INSTR.operand1);
+  // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
+  // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
 }
 
 // get the instruction from memory
@@ -588,13 +665,19 @@ int execute(Instruction_Data INSTR, int state)
     opAND(INSTR);
 	}
 	// NOT, XOR
-	if ( state == 9 ) {}
+	if ( state == 9 ) {
+    opXORNOT(INSTR);
+  }
 	// LDB 
-	if ( state == 2 ) {}
+	if ( state == 2 ) {
+    //opLDB(INSTR);
+  }
 	// LDW 
 	if ( state == 6 ) {}
 	// STB
-	if ( state == 3 ) {} 
+	if ( state == 3 ) {
+    opSTB(INSTR);
+  } 
 	// STW
 	if ( state == 7 ) {} 
 	// BR
