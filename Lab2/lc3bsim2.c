@@ -480,20 +480,20 @@ void getRegString(Instruction_Data INSTR, char * reg, int regIndex) {
 }
 
 void setCC(int result) {
-  if (result > 0) {
+  if (result > 0 && result < 32768) {
     NEXT_LATCHES.P = 1;
     NEXT_LATCHES.N = 0;
     NEXT_LATCHES.Z = 0;
   }
   else if (result == 0) {
     NEXT_LATCHES.P = 0;
-    NEXT_LATCHES.N = 1;
-    NEXT_LATCHES.Z = 0;
-  }
-  else if (result < 0) {
-    NEXT_LATCHES.P = 0;
     NEXT_LATCHES.N = 0;
     NEXT_LATCHES.Z = 1;
+  }
+  else if (result >= 32768 & result <= 65535 ) {
+    NEXT_LATCHES.P = 0;
+    NEXT_LATCHES.N = 1;
+    NEXT_LATCHES.Z = 0;
   }
 }
 void opADD(Instruction_Data INSTR) {
@@ -506,10 +506,21 @@ void opADD(Instruction_Data INSTR) {
   int op3 = (INSTR.instrReg & 0x0007);
   if (INSTR.binaryString[5] == '0')
     op3 = CURRENT_LATCHES.REGS[op3];
-  else
-    op3 = (INSTR.instrReg & 0x001F);
+  else {
+    op3 = Low16bits(INSTR.instrReg & 0x001F);
+    printf("OP3 Result: %d\n", op3);
+    if (op3 > 15)
+      op3 = Low16bits(op3 + 0xFFE0);
+  }
 
-  int result = CURRENT_LATCHES.REGS[INSTR.operand2] + op3;
+  int result = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2]) + Low16bits(op3));
+
+  // if (result > )
+  //   result = Low16bits(0xFFC0 + INSTR.operand3);
+
+  printf("OP2 Result: %d\n", INSTR.operand2);
+  printf("OP3 Result: %d\n", op3);
+  printf("ADD Result: 0x%.4x\n", result);
   setCC(result);
 
   NEXT_LATCHES.REGS[INSTR.operand1] = result;
@@ -529,6 +540,7 @@ void opAND(Instruction_Data INSTR) {
     op3 = (INSTR.instrReg & 0x001F);
 
   int result = INSTR.operand2 & op3;
+  printf("AND Result: %d\n", result);
   setCC(result);
   NEXT_LATCHES.REGS[INSTR.operand1] = result;
 }
@@ -667,28 +679,80 @@ void opSTW(Instruction_Data INSTR) {
 }
 
 void opLEA(Instruction_Data INSTR) {
-  // MEM[BaseR + LSHF(SEXT(offset6), 1)] = SR;
+  // LEA does not set CC per lab descriptor
 
   // get SR
   INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
   // get BR
-  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
-  // get offset6
-  INSTR.operand3 = (INSTR.instrReg & 0x003F);
+  INSTR.operand2 = (INSTR.instrReg & 0x01FF);
 
-  if (INSTR.operand3 > 31)
-    INSTR.operand3 = Low16bits(0xFFC0 + INSTR.operand3);
+  if (INSTR.operand2 > 255)
+    INSTR.operand2 = Low16bits(0xFE00 + INSTR.operand2);
 
-  INSTR.operand3 = INSTR.operand3 << 1;
-  int memIndex = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2])
-              + Low16bits(INSTR.operand3));
-  
-  printf("Index: %d\n", memIndex);
-  if (memIndex % 2 == 0)
-    MEMORY[memIndex >> 1][0] = CURRENT_LATCHES.REGS[INSTR.operand1];
-  else
-    MEMORY[memIndex >> 1][1] = CURRENT_LATCHES.REGS[INSTR.operand1];
+  INSTR.operand2 = INSTR.operand2 << 1;
+  int address = Low16bits(Low16bits(NEXT_LATCHES.PC)
+              + Low16bits(INSTR.operand2));
+
+  NEXT_LATCHES.REGS[INSTR.operand1] = address;
 }
+
+void opJMPRET(Instruction_Data INSTR) {
+  // get BR
+  INSTR.operand1 = (INSTR.instrReg & 0x01C0) >> 6;
+  NEXT_LATCHES.PC = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]);
+}
+
+void opTRAP(Instruction_Data INSTR) {
+
+  NEXT_LATCHES.REGS[7] = NEXT_LATCHES.PC;
+  int trapVect = Low16bits(INSTR.instrReg & 0x00FF) << 1;
+  NEXT_LATCHES.PC = 0x0000; //MEMORY[trapVect >> 1];
+}
+
+void opJSR(Instruction_Data INSTR) {
+  
+  NEXT_LATCHES.REGS[7] = NEXT_LATCHES.PC;
+
+  if (INSTR.binaryString[11] == '0') {
+    INSTR.operand1 = (INSTR.instrReg & 0x01C0) >> 6;
+    NEXT_LATCHES.PC = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]);
+  }
+  else {
+    INSTR.operand1 = (INSTR.instrReg & 0x07FF);
+    if (INSTR.operand1 > 1023)
+      INSTR.operand1 = Low16bits(0xF800 + INSTR.operand1);
+
+    INSTR.operand1 = INSTR.operand1 << 1;
+    NEXT_LATCHES.PC = NEXT_LATCHES.PC + INSTR.operand1;
+  }
+}
+
+void opBRANCH(Instruction_Data INSTR) {
+  // if the branch is enabled
+  int flagN = (INSTR.binaryString[11] - '0' & CURRENT_LATCHES.N);
+  int flagZ = (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z);
+  int flagP = (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P);
+
+  printf("N: %c\t Z: %c\t P: %c\n", INSTR.binaryString[11], INSTR.binaryString[10], INSTR.binaryString[9]);
+  printf("N: %d\t Z: %d\t P: %d\n", CURRENT_LATCHES.N, CURRENT_LATCHES.Z, CURRENT_LATCHES.P);
+  printf("N: %d\t Z: %d\t P: %d\n", flagN, flagZ, flagP);
+
+  if ( flagN || flagZ || flagP) {
+    // get PCoffset9
+    INSTR.operand1 = (INSTR.instrReg & 0x01FF);
+
+    if (INSTR.operand1 > 255)
+      INSTR.operand1 = Low16bits(0xFE00 + INSTR.operand1);
+
+    INSTR.operand1 = INSTR.operand1 << 1;
+    int address = Low16bits(Low16bits(NEXT_LATCHES.PC)
+                + Low16bits(INSTR.operand1));
+
+    NEXT_LATCHES.PC = address;
+  }
+
+}
+
 
 // get the instruction from memory
 /* MEMORY[A][0] stores the least significant byte of word at word address A
@@ -714,13 +778,13 @@ int fetch() {
 
 int decode(Instruction_Data INSTR) {
 
-  // Set BEN signal
-  if ((INSTR.binaryString[11] - '0' & CURRENT_LATCHES.N)
-    || (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z)
-    || (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P))
-    BEN = 1;
-  else
-    BEN = 0;
+  // // Set BEN signal
+  // if ((INSTR.binaryString[11] - '0' & CURRENT_LATCHES.N)
+  //   || (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z)
+  //   || (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P))
+  //   BEN = 1;
+  // else
+  //   BEN = 0;
 
   return (INSTR.instrReg & 0xF000) >> 12;
 }
@@ -756,15 +820,23 @@ int execute(Instruction_Data INSTR, int state)
     opSTW(INSTR);
   } 
 	// BR
-	if ( state == 0 ) {} 
+	if ( state == 0 ) {
+    opBRANCH(INSTR);
+  } 
 	// JSR, JSRR
-	if ( state == 4 ) {} 
+	if ( state == 4 ) {
+    opJSR(INSTR);
+  } 
 	// JMP, RET
-	if ( state == 12 ) {} 
+	if ( state == 12 ) {
+    opJMPRET(INSTR);
+  } 
 	// LSHF, RSHFL, RSHFA
 	if ( state == 13 ) {} 
 	// TRAP, HALT
-	if ( state == 15 ) {} 
+	if ( state == 15 ) {
+    opTRAP(INSTR);
+  } 
 	// LEA
 	if ( state == 14 ) {
     opLEA(INSTR);
@@ -797,8 +869,8 @@ void process_instruction(){
   int foo = execute(INSTR, INSTR.opcode);
   printf("%d\n", INSTR.opcode);
 
-  if (INSTR.instrReg == 0xF025)
-    NEXT_LATCHES.PC = 0x0000;
+  // if (INSTR.instrReg == 0xF025)
+  //   NEXT_LATCHES.PC = 0x0000;
   /*  function: process_instruction
    *  
    *    Process one instruction at a time  

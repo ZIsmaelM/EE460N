@@ -1,0 +1,9 @@
+	.orig x0002
+	AND R0,R0,#0
+	ADD R1,R0,#3
+bloop	ADD R1,R1,#-1
+	BRnp bloop
+	ADD R2,R0,#7
+	ADD R5,R0,#5	
+	HALT
+	.end
