@@ -1,7 +1,9 @@
-0x0002
-0x5020
-0x1226
-0x320E
-0x324E
-0x327A
-0xF025
+	.orig x0002
+	AND R0,R0,#0
+	ADD R1,R0,#7
+	STB R1,R0,xE
+	STB R1,R0,#15
+	STB R1,R1,xE
+	;STB R1,R1, #-6
+	HALT
+	.end

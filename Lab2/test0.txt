@@ -1,6 +1,7 @@
-0x3000
-0x5020
-0x1022
-0x1221
-0x1400
-0xF025
+	.orig x0002
+	AND R0,R0,#0
+	ADD R0,R0,#2
+	ADD R1,R0,#1
+	ADD R2,R0,R0
+	HALT
+	.end

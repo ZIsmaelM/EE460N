@@ -1,0 +1,8 @@
+	.orig x0002
+	AND R0,R0,#0
+	ADD R1,R0,#12
+	STW R1,R0,#15
+	STW R1,R1,xE
+	STW R1,R1, #-6
+	HALT
+	.end
