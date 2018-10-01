@@ -1,0 +1,14 @@
+	.orig x0002
+	ADD R0,R0,#0
+	ADD R1,R0,#3
+	LSHF R2,R1,#13
+	LSHF R3,R1,#14
+	RSHFL R4,R2,#7
+	RSHFA R5,R2,#3
+	RSHFA R6,R3,#6
+	BRn bloop
+	ADD R0,R0,#1
+A	.fill x5555
+bloop	HALT
+	.end
+	

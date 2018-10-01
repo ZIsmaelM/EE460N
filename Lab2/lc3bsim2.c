@@ -733,9 +733,9 @@ void opBRANCH(Instruction_Data INSTR) {
   int flagZ = (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z);
   int flagP = (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P);
 
-  printf("N: %c\t Z: %c\t P: %c\n", INSTR.binaryString[11], INSTR.binaryString[10], INSTR.binaryString[9]);
-  printf("N: %d\t Z: %d\t P: %d\n", CURRENT_LATCHES.N, CURRENT_LATCHES.Z, CURRENT_LATCHES.P);
-  printf("N: %d\t Z: %d\t P: %d\n", flagN, flagZ, flagP);
+  // printf("N: %c\t Z: %c\t P: %c\n", INSTR.binaryString[11], INSTR.binaryString[10], INSTR.binaryString[9]);
+  // printf("N: %d\t Z: %d\t P: %d\n", CURRENT_LATCHES.N, CURRENT_LATCHES.Z, CURRENT_LATCHES.P);
+  // printf("N: %d\t Z: %d\t P: %d\n", flagN, flagZ, flagP);
 
   if ( flagN || flagZ || flagP) {
     // get PCoffset9
@@ -750,9 +750,54 @@ void opBRANCH(Instruction_Data INSTR) {
 
     NEXT_LATCHES.PC = address;
   }
-
 }
 
+void opSHFT(Instruction_Data INSTR) {
+
+  // get DR
+  INSTR.operand1 = (INSTR.instrReg & 0x0E00) >> 9;
+  // get SR
+  INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
+  // get amount4
+  int op3 = (INSTR.instrReg & 0x000F);
+
+  int bit4 = INSTR.binaryString[4] - '0';
+  int bit5 = INSTR.binaryString[5] - '0';
+
+  int result = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2]);
+
+  char oddFlag = '0';
+  if (result > 32767)
+    oddFlag = '1';
+
+  char mask[17] = "0000000000000000\0";
+  int maskIndex = 15;
+  int maskValue = 0;
+  
+  if (!bit4) {
+    result = result << op3;
+  }
+  else if (!bit5) {
+    for (int i = 0; i < op3; i++) {
+      result = result >> 1;
+      mask[maskIndex] = '0';
+      maskIndex--;
+    }
+    maskValue = binaryToInt(mask);
+    result = Low16bits(result | maskValue);
+  }
+  else {
+    for (int i = 0; i < op3; i++) {
+      result = result >> 1;
+      mask[maskIndex] = oddFlag;
+      maskIndex--;
+    }
+    maskValue = binaryToInt(mask);
+    result = Low16bits(result | maskValue);
+  }
+  setCC(result);
+  NEXT_LATCHES.REGS[INSTR.operand1] = result;
+}
 
 // get the instruction from memory
 /* MEMORY[A][0] stores the least significant byte of word at word address A
@@ -832,7 +877,9 @@ int execute(Instruction_Data INSTR, int state)
     opJMPRET(INSTR);
   } 
 	// LSHF, RSHFL, RSHFA
-	if ( state == 13 ) {} 
+	if ( state == 13 ) {
+    opSHFT(INSTR);
+  } 
 	// TRAP, HALT
 	if ( state == 15 ) {
     opTRAP(INSTR);
@@ -846,6 +893,7 @@ int execute(Instruction_Data INSTR, int state)
 }
 
 void printDebug(Instruction_Data INSTR) {
+  printf("*********************************\n");
   printf("PC: 0x%.4X\n", CURRENT_LATCHES.PC);
 	printf("Instr Int: %d\n", INSTR.instrReg);
 	printf("Instr Hex: 0x%.4X\n", INSTR.instrReg);
@@ -856,7 +904,7 @@ void printDebug(Instruction_Data INSTR) {
 		if(i%4 == 0)
 			printf(" ");
 	}
-	printf("\n");
+	printf("\n*********************************\n");
 }
 
 void process_instruction(){
@@ -867,7 +915,7 @@ void process_instruction(){
   printDebug(INSTR);
   INSTR.opcode = decode(INSTR);
   int foo = execute(INSTR, INSTR.opcode);
-  printf("%d\n", INSTR.opcode);
+  // printf("%d\n", INSTR.opcode);
 
   // if (INSTR.instrReg == 0xF025)
   //   NEXT_LATCHES.PC = 0x0000;
