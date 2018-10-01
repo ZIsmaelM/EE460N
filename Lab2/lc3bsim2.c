@@ -1,12 +1,6 @@
 /*
-    Remove all unnecessary lines (including this one) 
-    in this comment.
-    REFER TO THE SUBMISSION INSTRUCTION FOR DETAILS
-
     Name 1: Ismael Marquez 
-    Name 2: Full name of the second partner
     UTEID 1: im6549
-    UTEID 2: UT EID of the second partner
 */
 
 /***************************************************************/
@@ -65,15 +59,15 @@ int MEMORY[WORDS_IN_MEM][2];
 /***************************************************************/
 #define LC_3b_REGS 8
 
-int RUN_BIT;	/* run bit */
+int RUN_BIT;  /* run bit */
 
 
 typedef struct System_Latches_Struct{
 
-  int PC,		/* program counter */
-    N,		/* n condition bit */
-    Z,		/* z condition bit */
-    P;		/* p condition bit */
+  int PC,   /* program counter */
+    N,    /* n condition bit */
+    Z,    /* z condition bit */
+    P;    /* p condition bit */
   int REGS[LC_3b_REGS]; /* register file. */
 } System_Latches;
 
@@ -135,9 +129,9 @@ void run(int num_cycles) {
   printf("Simulating for %d cycles...\n\n", num_cycles);
   for (i = 0; i < num_cycles; i++) {
     if (CURRENT_LATCHES.PC == 0x0000) {
-	    RUN_BIT = FALSE;
-	    printf("Simulator halted\n\n");
-	    break;
+      RUN_BIT = FALSE;
+      printf("Simulator halted\n\n");
+      break;
     }
     cycle();
   }
@@ -262,10 +256,10 @@ void get_command(FILE * dumpsim_file) {
   case 'R':
   case 'r':
     if (buffer[1] == 'd' || buffer[1] == 'D')
-	    rdump(dumpsim_file);
+      rdump(dumpsim_file);
     else {
-	    scanf("%d", &cycles);
-	    run(cycles);
+      scanf("%d", &cycles);
+      run(cycles);
     }
     break;
 
@@ -321,9 +315,9 @@ void load_program(char *program_filename) {
   while (fscanf(prog, "%x\n", &word) != EOF) {
     /* Make sure it fits. */
     if (program_base + ii >= WORDS_IN_MEM) {
-	    printf("Error: Program file %s is too long to fit in memory. %x\n",
+      printf("Error: Program file %s is too long to fit in memory. %x\n",
              program_filename, ii);
-	    exit(-1);
+      exit(-1);
     }
 
     /* Write the word to memory array. */
@@ -376,7 +370,6 @@ int main(int argc, char *argv[]) {
 
   printf("LC-3b Simulator\n\n");
 
-  //argv[1] = "test0.txt";
   initialize(argv[1], argc - 1);
 
   if ( (dumpsim_file = fopen( "dumpsim", "w" )) == NULL ) {
@@ -403,7 +396,7 @@ int main(int argc, char *argv[]) {
    You may use the functions to get at the control bits defined
    above.
 
-   Begin your code here 	  			       */
+   Begin your code here                  */
 
 /***************************************************************/
 
@@ -420,9 +413,6 @@ typedef struct Instruction_Data_Struct{
 } Instruction_Data;
 
 Instruction_Data INSTR;
-int MAR;
-int MDR;
-int BEN;
 
 // converts an int into a string of binary characters (prints as inverse of value)
 void intToBinary(int val, char* string) {
@@ -495,6 +485,8 @@ void setCC(int result) {
     NEXT_LATCHES.N = 1;
     NEXT_LATCHES.Z = 0;
   }
+  // printf("PC: 0x%.4x\t RESULT: 0x%.4x\t\t", CURRENT_LATCHES.PC, result);
+  // printf("N: %d\t Z: %d\t P: %d\n\n", NEXT_LATCHES.N, NEXT_LATCHES.Z, NEXT_LATCHES. P);
 }
 void opADD(Instruction_Data INSTR) {
 
@@ -508,19 +500,11 @@ void opADD(Instruction_Data INSTR) {
     op3 = CURRENT_LATCHES.REGS[op3];
   else {
     op3 = Low16bits(INSTR.instrReg & 0x001F);
-    printf("OP3 Result: %d\n", op3);
     if (op3 > 15)
       op3 = Low16bits(op3 + 0xFFE0);
   }
 
   int result = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2]) + Low16bits(op3));
-
-  // if (result > )
-  //   result = Low16bits(0xFFC0 + INSTR.operand3);
-
-  printf("OP2 Result: %d\n", INSTR.operand2);
-  printf("OP3 Result: %d\n", op3);
-  printf("ADD Result: 0x%.4x\n", result);
   setCC(result);
 
   NEXT_LATCHES.REGS[INSTR.operand1] = result;
@@ -536,11 +520,13 @@ void opAND(Instruction_Data INSTR) {
   int op3 = (INSTR.instrReg & 0x0007);
   if (INSTR.binaryString[5] == '0')
     op3 = CURRENT_LATCHES.REGS[op3];
-  else
-    op3 = (INSTR.instrReg & 0x001F);
+  else {
+    op3 = Low16bits(INSTR.instrReg & 0x001F);
+    if (op3 > 15)
+      op3 = Low16bits(op3 + 0xFFE0);
+  }
 
-  int result = INSTR.operand2 & op3;
-  printf("AND Result: %d\n", result);
+  int result = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2]) & Low16bits(op3));
   setCC(result);
   NEXT_LATCHES.REGS[INSTR.operand1] = result;
 }
@@ -551,14 +537,19 @@ void opXORNOT(Instruction_Data INSTR) {
   // get SR1
   INSTR.operand2 = (INSTR.instrReg & 0x01C0) >> 6;
   // get imm5 or SR2
+
   int result;
-  int op3 = (INSTR.instrReg & 0x0007);
+  int op3 = Low16bits(INSTR.instrReg & 0x0007);
+
   if (INSTR.binaryString[5] == '0') {
     op3 = CURRENT_LATCHES.REGS[op3];
-    result = CURRENT_LATCHES.REGS[INSTR.operand2] + op3;
+    result = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2] ^ op3);
   }
   else {
-    result = ~CURRENT_LATCHES.REGS[INSTR.operand2];
+    op3 = Low16bits(INSTR.instrReg & 0x001F);
+    if (op3 > 15)
+      op3 = Low16bits(op3 + 0xFFE0);
+    result = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2] ^ op3);
   }
 
   setCC(result);
@@ -575,30 +566,28 @@ void opLDB(Instruction_Data INSTR) {
   // get offset6
   INSTR.operand3 = (INSTR.instrReg & 0x003F);
 
-  printf("Op3: 0x%.4X\n", INSTR.operand3);
   if (INSTR.operand3 > 31)
     INSTR.operand3 = Low16bits(0xFFC0 + INSTR.operand3);
 
+  printf("op3: %d\n", INSTR.operand3);
+  printf("op2Reg: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
   int memIndex = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2])
                   + Low16bits(INSTR.operand3));
 
-  printf("Op3: 0x%.4X\n", memIndex);
+  printf("MEM INDEX: %d\n", memIndex);
   int memContents;
   if (memIndex % 2 == 0)
     memContents = MEMORY[memIndex>>1][0]; // lower 8 bits of address contents
   else
     memContents = MEMORY[memIndex>>1][1]; // upper 8 bits of address contents
 
+  printf("MEM: %d\n", memContents);
   int result = memContents;
   if (memContents >= 128)
-    result += 0xFF00 + memContents;
+    result = 0xFF00 + memContents;
 
   setCC(result);
-  NEXT_LATCHES.REGS[INSTR.operand1] = result;//INSTR.operand3;
-  // printf("Op1: %d\n", INSTR.operand1);
-  // printf("Op2: %d\n", CURRENT_LATCHES.REGS[INSTR.operand2]);
-  // printf("Op3: %d\n", op3);
-  // printf("result: %d\n", NEXT_LATCHES.REGS[INSTR.operand1]);
+  NEXT_LATCHES.REGS[INSTR.operand1] = result;
 }
 
 void opLDW(Instruction_Data INSTR) {
@@ -627,7 +616,7 @@ void opLDW(Instruction_Data INSTR) {
 
   int result = memContents;
   if (memContents >= 128)
-    result += 0xFF00 + memContents;
+    result = 0xFF00 + memContents;
 
   setCC(result);
   NEXT_LATCHES.REGS[INSTR.operand1] = result;
@@ -649,10 +638,11 @@ void opSTB(Instruction_Data INSTR) {
   int memIndex = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2])
               + Low16bits(INSTR.operand3));
 
+  printf("MEM INDEX: %d\n", memIndex);
   if (memIndex % 2 == 0)
-    MEMORY[memIndex >> 1][0] = CURRENT_LATCHES.REGS[INSTR.operand1];
+    MEMORY[memIndex >> 1][0] = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]) & 0xFF;
   else
-    MEMORY[memIndex >> 1][1] = CURRENT_LATCHES.REGS[INSTR.operand1];
+    MEMORY[memIndex >> 1][1] = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]) & 0xFF;
 }
 
 void opSTW(Instruction_Data INSTR) {
@@ -672,10 +662,9 @@ void opSTW(Instruction_Data INSTR) {
   int memIndex = Low16bits(Low16bits(CURRENT_LATCHES.REGS[INSTR.operand2])
               + Low16bits(INSTR.operand3));
   
-  if (memIndex % 2 == 0)
-    MEMORY[memIndex >> 1][0] = CURRENT_LATCHES.REGS[INSTR.operand1];
-  else
-    MEMORY[memIndex >> 1][1] = CURRENT_LATCHES.REGS[INSTR.operand1];
+  printf("MEM INDEX: %d\n", memIndex);
+  MEMORY[memIndex >> 1][0] = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]) & 0xFF;
+  MEMORY[memIndex >> 1][1] = (Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]) & 0xFF00) >> 8;
 }
 
 void opLEA(Instruction_Data INSTR) {
@@ -698,7 +687,7 @@ void opLEA(Instruction_Data INSTR) {
 
 void opJMPRET(Instruction_Data INSTR) {
   // get BR
-  INSTR.operand1 = (INSTR.instrReg & 0x01C0) >> 6;
+  INSTR.operand1 = Low16bits((INSTR.instrReg & 0x01C0) >> 6);
   NEXT_LATCHES.PC = Low16bits(CURRENT_LATCHES.REGS[INSTR.operand1]);
 }
 
@@ -711,7 +700,7 @@ void opTRAP(Instruction_Data INSTR) {
 
 void opJSR(Instruction_Data INSTR) {
   
-  NEXT_LATCHES.REGS[7] = NEXT_LATCHES.PC;
+  int tempPC = NEXT_LATCHES.PC;
 
   if (INSTR.binaryString[11] == '0') {
     INSTR.operand1 = (INSTR.instrReg & 0x01C0) >> 6;
@@ -725,6 +714,7 @@ void opJSR(Instruction_Data INSTR) {
     INSTR.operand1 = INSTR.operand1 << 1;
     NEXT_LATCHES.PC = NEXT_LATCHES.PC + INSTR.operand1;
   }
+  NEXT_LATCHES.REGS[7] = Low16bits(tempPC);
 }
 
 void opBRANCH(Instruction_Data INSTR) {
@@ -732,10 +722,6 @@ void opBRANCH(Instruction_Data INSTR) {
   int flagN = (INSTR.binaryString[11] - '0' & CURRENT_LATCHES.N);
   int flagZ = (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z);
   int flagP = (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P);
-
-  // printf("N: %c\t Z: %c\t P: %c\n", INSTR.binaryString[11], INSTR.binaryString[10], INSTR.binaryString[9]);
-  // printf("N: %d\t Z: %d\t P: %d\n", CURRENT_LATCHES.N, CURRENT_LATCHES.Z, CURRENT_LATCHES.P);
-  // printf("N: %d\t Z: %d\t P: %d\n", flagN, flagZ, flagP);
 
   if ( flagN || flagZ || flagP) {
     // get PCoffset9
@@ -775,7 +761,7 @@ void opSHFT(Instruction_Data INSTR) {
   int maskValue = 0;
   
   if (!bit4) {
-    result = result << op3;
+    result = Low16bits(result << op3);
   }
   else if (!bit5) {
     for (int i = 0; i < op3; i++) {
@@ -804,92 +790,48 @@ void opSHFT(Instruction_Data INSTR) {
    MEMORY[A][1] stores the most significant byte of word at word address A 
 */
 int fetch() {
-  MAR = CURRENT_LATCHES.PC;
   int instrPtr = CURRENT_LATCHES.PC; 
   NEXT_LATCHES.PC = CURRENT_LATCHES.PC + 2;
 
-  // TODO: check ready bit
-  MDR = MAR;
   int lower8 = MEMORY[instrPtr>>1][0];
   int upper8 = MEMORY[instrPtr>>1][1];
   int instr = (upper8 << 8) + lower8;
-
-  // printf("0x%.4X:		0x%.4X\n", instrPtr, instr);
-  // printf("[7-0]: %d\n", lower8);
-  // printf("[15-8]: %d\n", upper8);
 
   return instr;
 }
 
 int decode(Instruction_Data INSTR) {
-
-  // // Set BEN signal
-  // if ((INSTR.binaryString[11] - '0' & CURRENT_LATCHES.N)
-  //   || (INSTR.binaryString[10] - '0' & CURRENT_LATCHES.Z)
-  //   || (INSTR.binaryString[9] - '0' & CURRENT_LATCHES.P))
-  //   BEN = 1;
-  // else
-  //   BEN = 0;
-
   return (INSTR.instrReg & 0xF000) >> 12;
 }
 
-int execute(Instruction_Data INSTR, int state)
+void execute(Instruction_Data INSTR, int state)
 {
 	// ADD
-	if ( state == 1 ) {
-		opADD(INSTR);
-	}
+	if ( state == 1 ) opADD(INSTR);
 	// AND
-	if ( state == 5 ) {
-    opAND(INSTR);
-	}
+	if ( state == 5 ) opAND(INSTR);
 	// NOT, XOR
-	if ( state == 9 ) {
-    opXORNOT(INSTR);
-  }
+	if ( state == 9 ) opXORNOT(INSTR);
 	// LDB 
-	if ( state == 2 ) {
-    opLDB(INSTR);
-  }
+	if ( state == 2 ) opLDB(INSTR);
 	// LDW 
-	if ( state == 6 ) {
-    opLDW(INSTR);
-  }
+	if ( state == 6 ) opLDW(INSTR);
 	// STB
-	if ( state == 3 ) {
-    opSTB(INSTR);
-  } 
+	if ( state == 3 ) opSTB(INSTR);
 	// STW
-	if ( state == 7 ) {
-    opSTW(INSTR);
-  } 
+	if ( state == 7 ) opSTW(INSTR);
 	// BR
-	if ( state == 0 ) {
-    opBRANCH(INSTR);
-  } 
+	if ( state == 0 ) opBRANCH(INSTR); 
 	// JSR, JSRR
-	if ( state == 4 ) {
-    opJSR(INSTR);
-  } 
+	if ( state == 4 ) opJSR(INSTR); 
 	// JMP, RET
-	if ( state == 12 ) {
-    opJMPRET(INSTR);
-  } 
+	if ( state == 12 ) opJMPRET(INSTR); 
 	// LSHF, RSHFL, RSHFA
-	if ( state == 13 ) {
-    opSHFT(INSTR);
-  } 
+	if ( state == 13 ) opSHFT(INSTR); 
 	// TRAP, HALT
-	if ( state == 15 ) {
-    opTRAP(INSTR);
-  } 
+	if ( state == 15 ) opTRAP(INSTR);
 	// LEA
-	if ( state == 14 ) {
-    opLEA(INSTR);
-  } 
-
-	return -1;
+	if ( state == 14 ) opLEA(INSTR); 
 }
 
 void printDebug(Instruction_Data INSTR) {
@@ -910,22 +852,18 @@ void printDebug(Instruction_Data INSTR) {
 void process_instruction(){
 
   Instruction_Data INSTR;
+
+  // FETCH
   INSTR.instrReg = fetch();  
   intToBinary(INSTR.instrReg, INSTR.binaryString);
-  printDebug(INSTR);
-  INSTR.opcode = decode(INSTR);
-  int foo = execute(INSTR, INSTR.opcode);
-  // printf("%d\n", INSTR.opcode);
 
-  // if (INSTR.instrReg == 0xF025)
-  //   NEXT_LATCHES.PC = 0x0000;
-  /*  function: process_instruction
-   *  
-   *    Process one instruction at a time  
-   *       -Fetch one instruction
-   *       -Decode 
-   *       -Execute
-   *       -Update NEXT_LATCHES
-   */     
+  // DECODE
+  INSTR.opcode = decode(INSTR);
+  
+  // EXECUTE
+  execute(INSTR, INSTR.opcode);
+
+  // DEBUG
+  //printDebug(INSTR);
 
 }
