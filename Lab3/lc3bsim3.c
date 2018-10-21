@@ -574,13 +574,80 @@ int main(int argc, char *argv[]) {
    Begin your code here 	  			       */
 /***************************************************************/
 
+// converts an int into a string of binary characters (prints as inverse of value)
+void intToBinary(int val, char* string) {
+  int valDiv;
+  int valMod;
+  int strLen = strlen(string);
+
+  for (int i = 0; i <= strLen; i++) {
+    valDiv = val >> 1;
+    valMod = val % 2;
+
+    if (valMod != 0)
+      string[i] = '1';
+    else
+      string[i] = '0';
+
+    val = valDiv;
+  }
+  string[strLen+1] = '\0';
+}
+
+// converts a string of binary characters into an int
+int binaryToInt(char* string) {
+  int numDigits = strlen(string);
+  int val = 1;
+  int sum = 0;
+  int isNeg = string[numDigits-1] - '0';
+
+  for (int i = 0; i < numDigits; i++) {
+    if (isNeg) {
+    	if (string[i] == '0')
+    		sum += val;
+    } else {
+    	if (string[i] == '1')
+    		sum += val;
+    }
+    val *= 2;
+  }
+
+  if (isNeg) {
+  	sum += 1;
+  	sum = -sum;
+  }
+
+  return sum;
+}
 
 void eval_micro_sequencer() {
-
+  
   /* 
    * Evaluate the address of the next state according to the 
    * micro sequencer logic. Latch the next microinstruction.
    */
+
+	int jBits = GetJ(CURRENT_LATCHES.MICROINSTRUCTION);
+	int condCodes = GetCOND(CURRENT_LATCHES.MICROINSTRUCTION);
+
+	//not necessary but for some clarity
+	int ben = CURRENT_LATCHES.BEN;
+	int r = CURRENT_LATCHES.READY;
+	//int ir11 = CURRENT_LATCHES.IR;
+
+	// TODO: check BEN, R, and IR[11]
+
+	int sequenceState = jBits;
+	int nextState;
+	if (CURRENT_LATCHES.MICROINSTRUCTION[IRD])
+		nextState = ((CURRENT_LATCHES.IR) & 0xF000) >> 12;
+	else
+		nextState = sequenceState;
+
+	//NEXT_LATCHES.MICROINSTRUCTION[J0] = 
+
+	printf("%d\n", LD_MAR);
+	printf("J bits: 0x%x CondCodes: 0x%x BEN: %d R: %d\n", jBits, condCodes, ben, r);
 
 }
 
