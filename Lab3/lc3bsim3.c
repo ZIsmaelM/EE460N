@@ -693,6 +693,7 @@ void cycle_memory() {
 
 			NEXT_LATCHES.READY = 1;
 			printf("Instruction: 0x%.4X\n", NEXT_LATCHES.MDR);
+			printf("CYCLE COUNT: %d\n", CYCLE_COUNT);
 		}
 	} else {
 		memCycles = 0;
@@ -775,6 +776,10 @@ void eval_bus_drivers() {
 		int baseR = (CURRENT_LATCHES.IR & 0x01C0) >> 6;
 		int offset6 = (CURRENT_LATCHES.IR & 0x003F);
 		int offset9 = (CURRENT_LATCHES.IR & 0x01FF);
+		if (offset6 > 31)
+			offset6 = offset6 | 0xFFFFFFC0;
+		if (offset9 > 255)
+			offset9 = offset6 | 0xFFFFFF00;
 		//int offset11 = (CURRENT_LATCHES.IR & 0x07FF);
 		int trapCode = (CURRENT_LATCHES.IR & 0x00FF);
 
@@ -790,7 +795,7 @@ void eval_bus_drivers() {
 			// 	gateMARMUXVal = CURRENT_LATCHES.REGS[baseR] + offset11;
 
 			if (GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
-				gateMARMUXVal = gateMARMUXVal << 1;
+				gateMARMUXVal = gateMARMUXVal;// << 1;
 		}
 		// TRAP state 15 
 		else {
@@ -803,29 +808,29 @@ void eval_bus_drivers() {
 	int sourceR = (CURRENT_LATCHES.IR & 0x01C0) >> 6;
 	int amount4 = CURRENT_LATCHES.IR & 0x000F;
 	if (GetGATE_SHF(CURRENT_LATCHES.MICROINSTRUCTION)) {
-		if ((CURRENT_LATCHES.IR >> 4) % 2)
-			gateALUVal = CURRENT_LATCHES.REGS[sourceR] << amount4;
+		if (!((CURRENT_LATCHES.IR >> 4) % 2))
+			gateSHFVal = CURRENT_LATCHES.REGS[sourceR] << amount4;
 		else if ((CURRENT_LATCHES.IR >> 5) % 2) {
 			int negFlag = 0;
 			int maskVal = 0x0000;
 			int sumVal = 0x8000;
-			gateALUVal = CURRENT_LATCHES.REGS[sourceR];
+			gateSHFVal = CURRENT_LATCHES.REGS[sourceR];
 
-			if (gateALUVal < 0)
+			if (gateSHFVal > 32767)
 				negFlag = 1;
 
-			gateALUVal = gateALUVal >> amount4;
+			gateSHFVal = gateSHFVal >> amount4;
 			if (negFlag) {
 				for (int i = 0; i < amount4; i++) {
 					maskVal += sumVal;
 					sumVal = sumVal >> 1;
 				}
 			}
-
-			gateALUVal = gateALUVal | maskVal;
+			printf("MASK: 0x%.4X\n", maskVal);
+			gateSHFVal = gateSHFVal | maskVal;
 		}
 		else
-			gateALUVal = CURRENT_LATCHES.REGS[sourceR] >> amount4;
+			gateSHFVal = CURRENT_LATCHES.REGS[sourceR] >> amount4;
 	}
 
 }
