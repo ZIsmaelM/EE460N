@@ -779,7 +779,7 @@ void eval_bus_drivers() {
 		if (offset6 > 31)
 			offset6 = offset6 | 0xFFFFFFC0;
 		if (offset9 > 255)
-			offset9 = offset6 | 0xFFFFFF00;
+			offset9 = offset9 | 0xFFFFFF00;
 		//int offset11 = (CURRENT_LATCHES.IR & 0x07FF);
 		int trapCode = (CURRENT_LATCHES.IR & 0x00FF);
 
@@ -844,15 +844,15 @@ void drive_bus() {
    */
 
     if (GetGATE_PC(CURRENT_LATCHES.MICROINSTRUCTION))
-    	BUS = gatePCVal;
+    	BUS = Low16bits(gatePCVal);
 	else if (GetGATE_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
-		BUS = gateMDRVal;
+		BUS = Low16bits(gateMDRVal);
 	else if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION))
-		BUS = gateALUVal;
+		BUS = Low16bits(gateALUVal);
 	else if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCTION))
-		BUS = gateMARMUXVal;
+		BUS = Low16bits(gateMARMUXVal);
 	else if (GetGATE_SHF(CURRENT_LATCHES.MICROINSTRUCTION))
-		BUS = gateSHFVal;
+		BUS = Low16bits(gateSHFVal);
 }
 
 
@@ -885,8 +885,12 @@ void latch_datapath_values() {
     		if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION))
     			NEXT_LATCHES.MDR = CURRENT_LATCHES.REGS[sr];
     		// Byte
-    		else
-    			NEXT_LATCHES.MDR = CURRENT_LATCHES.REGS[sr] & 0xFF;
+    		else {
+    			if (CURRENT_LATCHES.MAR % 2)
+    				NEXT_LATCHES.MDR = (CURRENT_LATCHES.REGS[sr] & 0x00FF) << 8;
+    			else
+    				NEXT_LATCHES.MDR = CURRENT_LATCHES.REGS[sr] & 0x00FF;
+    		}
     	}
     }
     // States: 35
@@ -895,10 +899,11 @@ void latch_datapath_values() {
     // States: 32
     if (GetLD_BEN(CURRENT_LATCHES.MICROINSTRUCTION)) {
     	int n = CURRENT_LATCHES.N & ((CURRENT_LATCHES.IR & 0x0800) >> 11);
-    	int z = CURRENT_LATCHES.N & ((CURRENT_LATCHES.IR & 0x0400) >> 10);
-    	int p = CURRENT_LATCHES.N & ((CURRENT_LATCHES.IR & 0x0200) >> 9);
+    	int z = CURRENT_LATCHES.Z & ((CURRENT_LATCHES.IR & 0x0400) >> 10);
+    	int p = CURRENT_LATCHES.P & ((CURRENT_LATCHES.IR & 0x0200) >> 9);
 
     	NEXT_LATCHES.BEN = n | z | p;
+    	printf("BEN: %d\n", NEXT_LATCHES.BEN);
     }
     // States: 1, 5, 9, 13, 14, 20, 21, 27, 28, 31
     if (GetLD_REG(CURRENT_LATCHES.MICROINSTRUCTION)) {
@@ -937,11 +942,14 @@ void latch_datapath_values() {
     		}
     		// State: 21
     		else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 3) {
-    			NEXT_LATCHES.PC = BUS + ((CURRENT_LATCHES.IR & 0x0EFF) << 1); 
+    			NEXT_LATCHES.PC = BUS + ((CURRENT_LATCHES.IR & 0x07FF) << 1); 
     		}
     		// State: 22
-    		else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 3) {
-    			NEXT_LATCHES.PC = CURRENT_LATCHES.PC + ((CURRENT_LATCHES.IR & 0x01FF) << 1); 
+    		else if (GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 2) {
+    			int offset9 = (CURRENT_LATCHES.IR & 0x01FF);
+				if (offset9 > 255)
+					offset9 = offset9 | 0xFFFFFF00;
+    			NEXT_LATCHES.PC = Low16bits(CURRENT_LATCHES.PC + (offset9 << 1)); 
     		}
     	}
     }
