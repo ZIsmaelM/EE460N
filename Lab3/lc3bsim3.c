@@ -692,8 +692,8 @@ void cycle_memory() {
 				NEXT_LATCHES.MDR = hiByteRead + lowByteRead;
 
 			NEXT_LATCHES.READY = 1;
-			printf("Instruction: 0x%.4X\n", NEXT_LATCHES.MDR);
-			printf("CYCLE COUNT: %d\n", CYCLE_COUNT);
+			//printf("Instruction: 0x%.4X\n", NEXT_LATCHES.MDR);
+			//printf("CYCLE COUNT: %d\n", CYCLE_COUNT);
 		}
 	} else {
 		memCycles = 0;
