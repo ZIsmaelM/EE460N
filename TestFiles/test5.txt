@@ -1,19 +1,18 @@
-	.orig x0002
-G	.fill #200
-Z	.fill x0202
-	AND R0,R0,#0
-	LDB R1,R0,#26
-	JMP R1
-	LEA R2, A
-	LEA R3, C
-	LEA R4, D
-	LEA R5, E
-	LEA R6, G
-	LEA R7, Z
-	HALT
-A	.Fill #18
-B	.Fill #7
-C	.Fill #8
-D	.Fill #9
-E	.Fill #3
-	.end
+0x0002
+0x00C8
+0x0202
+0x5020
+0x221A
+0xC040
+0xE406
+0xE607
+0xE807
+0xEA07
+0xEDF6
+0xEFF6
+0xF025
+0x0012
+0x0007
+0x0008
+0x0009
+0x0003

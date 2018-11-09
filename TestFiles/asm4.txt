@@ -1,0 +1,10 @@
+	.orig x0002
+	AND R0,R0,#0
+	ADD R1,R0,#10
+	ADD R3,R0,#15
+	JSR bloop
+	ADD R4,R1,#0
+bloop	ADD R5,R3,#0
+	RET
+	HALT
+	.end

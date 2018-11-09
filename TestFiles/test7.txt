@@ -1,9 +1,8 @@
-	.orig x0002
-	AND R0,R0,#0
-	ADD R1,R0,#3
-bloop	ADD R1,R1,#-1
-	BRnp bloop
-	ADD R2,R0,#7
-	ADD R5,R0,#5	
-	HALT
-	.end
+0x0002
+0x5020
+0x1223
+0x127F
+0x0BFE
+0x1427
+0x1A25
+0xF025

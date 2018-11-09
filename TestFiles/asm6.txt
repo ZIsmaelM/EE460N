@@ -1,0 +1,12 @@
+	.orig x0002;
+	AND R0,R0,#0
+	ADD R1,R0,#7
+	JSR bloop
+	ADD R2,R1,#0
+	ADD R3,R2,R2
+bloop	.fill x00ff
+	ADD R4,R0,#2
+	JSRR R7
+	HALT
+	.end
+

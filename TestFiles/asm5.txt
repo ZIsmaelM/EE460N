@@ -1,0 +1,19 @@
+	.orig x0002
+G	.fill #200
+Z	.fill x0202
+	AND R0,R0,#0
+	LDB R1,R0,#26
+	JMP R1
+	LEA R2, A
+	LEA R3, C
+	LEA R4, D
+	LEA R5, E
+	LEA R6, G
+	LEA R7, Z
+	HALT
+A	.Fill #18
+B	.Fill #7
+C	.Fill #8
+D	.Fill #9
+E	.Fill #3
+	.end
