@@ -1,0 +1,12 @@
+	.orig x0002
+	AND R0,R0,#0
+	LEA R1,beef
+	LDB R0,R6,#1
+	STW R1,R0,x16
+	LEA R3,dead
+	LDW R4,R3,#0
+	LDW R5,R1,#0
+	HALT
+beef	.fill xBEEF
+dead	.fill xDEAD
+	.end

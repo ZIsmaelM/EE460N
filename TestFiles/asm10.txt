@@ -1,0 +1,4 @@
+	.orig x0002
+	LDB R0,R6,#1
+	HALT
+	.end
