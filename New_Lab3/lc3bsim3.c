@@ -716,7 +716,11 @@ void eval_ALU(void) {
             break;
         default :
 			printf("Not a valid aluK code\n");
-    }   
+    }
+    printf("DR: %d\n", reg11_9); 
+    printf("SR1: %d\n", reg8_6);
+    printf("SR2: %d\n", sr2);
+    printf("Res: %d\n", gateALUVal);
 }
 
 int gateSHFVal;
@@ -864,10 +868,10 @@ void eval_micro_sequencer() {
     if (CURRENT_LATCHES.MICROINSTRUCTION[IRD])
         NEXT_LATCHES.STATE_NUMBER = mask( mask_shfR(CURRENT_LATCHES.IR, 0xF000, 12), 0x003F );
     else
-        NEXT_LATCHES.STATE_NUMBER = j5 << 5 + j4 << 4 + j3 << 3 + j2 << 2 + j1 << 1 + j0;
+        NEXT_LATCHES.STATE_NUMBER = (j5 << 5) + (j4 << 4) + (j3 << 3) + (j2 << 2) + (j1 << 1) + j0;
 
     for(int i = 0; i < CONTROL_STORE_BITS; i++)
-        NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[NEXT_LATCHES.STATE_NUMBER][i];
+		NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[NEXT_LATCHES.STATE_NUMBER][i];
 
 }
 
