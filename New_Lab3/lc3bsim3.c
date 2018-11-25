@@ -577,6 +577,25 @@ int main(int argc, char *argv[]) {
 #define Low8bits(x) ((x) & 0xFF)
 
 int mask(int x, int mask) {return ((x) & mask);}
+int mask_shfR(int x, int mask, int shfVal) {return ((x) & mask) >> shfVal;}
+
+int sext(int x, int numBits) {
+	int neg = (x >> numBits-1) % 2;
+
+	switch (numBits) {
+		case 8 :
+			return (neg ? (x | 0xFF00) : (x & 0x00FF));
+		case 6 :
+			return (neg ? (x | 0xFFC0) : (x & 0x003F));
+		case 9 :
+			return (neg ? (x | 0xFE00) : (x & 0x01FF));
+		case 11 :
+			return (neg ? (x | 0xF800) : (x & 0x07FF));
+		default :
+			printf("Not a valid SEXT amount\n");
+			return -1;
+	}
+}
 
 int sext_8(int x, int numBits) {
     if (x >> numBits-1 == 1)
@@ -585,11 +604,85 @@ int sext_8(int x, int numBits) {
         return x & 0x00FF;
 }
 
+int sext_6(int x, int numBits) {
+    if (x >> numBits-1 == 1)
+        return x | 0xFFC0;
+    else
+        return x & 0x003F;
+}
+
+int sext_9(int x, int numBits) {
+    if (x >> numBits-1 == 1)
+        return x | 0xFE00;
+    else
+        return x & 0x01FF;
+}
+
+int sext_11(int x, int numBits) {
+    if (x >> numBits-1 == 1)
+        return x | 0xF800;
+    else
+        return x & 0x07FF;
+}
+
+int eval_Address() {
+	// PC = 0, BaseReg = 1
+	int addr1;
+	if (GetADDR1MUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		int BaseReg = mask_shfR(CURRENT_LATCHES.IR, 0x01C0, 6);
+		addr1 = CURRENT_LATCHES.REGS[BaseReg];
+	}
+	else {
+		addr1 = CURRENT_LATCHES.PC;
+	}
+
+	// ZERO = 0, offset6 = 1, PCoffset9 = 2, PCoffset11 = 3
+	int addr2;
+	int addr2MuxCode = GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION);
+	switch (addr2MuxCode) {
+		case 0 :
+			addr2 = 0;
+			break;
+		case 1 :
+			addr2 = sext( mask(CURRENT_LATCHES.IR, 0x003F), 6);
+			break;
+		case 2 :
+			addr2 = sext( mask(CURRENT_LATCHES.IR, 0x01FF), 9);
+			break;
+		case 3 :
+			addr2 = sext( mask(CURRENT_LATCHES.IR, 0x07FF), 11);
+			break;
+		default :
+			printf("Not a valid addr2mux code\n");
+	}
+
+	if (GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
+		addr2 = addr2 << 1;
+
+	return Low16bits(addr1 + addr2);
+}
+
+int gateMARMUXVal;
+void eval_MARMUX(void) {
+	// TRAP = 0, ADDRESS = 1
+	if (GetMARMUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		gateMARMUXVal = eval_Address();
+	}
+	else {
+		gateMARMUXVal = Low16bits(mask(CURRENT_LATCHES.IR, 0x00FF) << 1);
+	}
+}
+
+int gatePCVal;
+void eval_PC(void) {
+	gatePCVal = CURRENT_LATCHES.PC;
+}
+
 int gateALUVal;
-int eval_ALU() {
+void eval_ALU(void) {
     int bit5 = (CURRENT_LATCHES.IR >> 5) % 2;
-    int reg11_9 = mask(CURRENT_LATCHES.IR, 0x0E00) >> 9;
-    int reg8_6 = mask(CURRENT_LATCHES.IR, 0x01C0) >> 6;
+    int reg11_9 = mask_shfR(CURRENT_LATCHES.IR, 0x0E00, 9);
+    int reg8_6 = mask_shfR(CURRENT_LATCHES.IR, 0x01C0, 6);
     int sr2;
 
     // check if 2nd source is register value or immediate value
@@ -621,16 +714,42 @@ int eval_ALU() {
         case 3 :
             gateALUVal = CURRENT_LATCHES.REGS[reg11_9];
             break;
+        default :
+			printf("Not a valid aluK code\n");
     }   
 }
 
 int gateSHFVal;
-int eval_SHF() {
-    
+void eval_SHF(void) {
+    int shfCode = mask_shfR(CURRENT_LATCHES.IR, 0x0030, 4);
+    int dr = mask_shfR(CURRENT_LATCHES.IR, 0x0E00, 9);
+    int sr = mask_shfR(CURRENT_LATCHES.IR, 0x01C0, 6);
+    int shfAmount = mask(CURRENT_LATCHES.IR, 0x000F);
+
+    int maskBits = 0;
+    int sumBits = 0x8000;
+    for (int i = 0; i < shfAmount; i++) {
+		maskBits += sumBits;
+		sumBits = sumBits >> 1;
+	}
+
+    int data = Low16bits(CURRENT_LATCHES.REGS[sr]);
+    int bit15 = mask(data, 0x8000);
+    switch (shfCode) {
+    	case 0 :
+    		gateSHFVal = Low16bits(data << shfAmount);
+    		break;
+    	case 1 :
+    		gateSHFVal = Low16bits(data >> shfAmount);
+    	case 3 :
+    		gateSHFVal = Low16bits( mask( (data >> shfAmount), maskBits ) );
+    	default :
+    		gateSHFVal = gateSHFVal;
+    }
 }
 
 int gateMDRVal;
-int eval_MDR() {
+void eval_MDR(void) {
     // WORD = 1, BYTE = 0
     if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION))
         gateMDRVal = CURRENT_LATCHES.MDR;
@@ -643,6 +762,74 @@ int eval_MDR() {
         else
             gateMDRVal = low8 & 0x00FF;
     }
+}
+
+void latch_MAR() {
+	NEXT_LATCHES.MAR = BUS;
+}
+
+void latch_MDR() {
+	int reg11_9 = mask_shfR(CURRENT_LATCHES.IR, 0x0E00, 9);
+    int reg8_6 = mask_shfR(CURRENT_LATCHES.IR, 0x01C0, 6);
+
+	if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION) && CURRENT_LATCHES.READY) {
+		if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) {
+			NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR/2][1] << 8 + MEMORY[CURRENT_LATCHES.MAR/2][0];
+		}
+		// This is for state 29, which differs in data size
+		// however, the appC states MDR still gets the entire 16bits of mem
+		// The desired byte is selected in the following state, 31
+		else {
+			NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR/2][1] << 8 + MEMORY[CURRENT_LATCHES.MAR/2][0];;
+		}
+	}
+	else {
+		int sr = mask_shfR(CURRENT_LATCHES.IR, 0x0E00, 9);
+		int isAWord = GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION);
+		NEXT_LATCHES.MDR = (isAWord ? CURRENT_LATCHES.REGS[sr] : mask(CURRENT_LATCHES.REGS[sr], 0x00FF));
+	}
+}
+
+void latch_IR() {
+	NEXT_LATCHES.IR = BUS;
+}
+
+void latch_BEN() {
+	int n = CURRENT_LATCHES.N & mask_shfR(CURRENT_LATCHES.IR, 0x0800, 11);
+	int z = CURRENT_LATCHES.Z & mask_shfR(CURRENT_LATCHES.IR, 0x0400, 10);
+	int p = CURRENT_LATCHES.P & mask_shfR(CURRENT_LATCHES.IR, 0x0200, 9);
+
+	NEXT_LATCHES.BEN = n | z | p;
+}
+
+void latch_REG() {
+	// if DRMUX = 1, dr = 7 else dr = reg11_9
+	int dr = (GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION) ? 7 : mask_shfR(CURRENT_LATCHES.IR, 0x0E00, 9));
+	NEXT_LATCHES.REGS[dr] = BUS;
+}
+
+void latch_CC() {
+	NEXT_LATCHES.N = (BUS > 32767 ? 1 : 0);
+	NEXT_LATCHES.Z = (BUS == 0 ? 1 : 0);
+	NEXT_LATCHES.P = ((BUS > 0 && BUS <= 32767) ? 1 : 0);
+}
+
+void latch_PC() {
+	int pcMuxCode = GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION);
+
+	switch (pcMuxCode) {
+		case 0 :
+			NEXT_LATCHES.PC = CURRENT_LATCHES.PC + 2;
+			break;
+		case 1 :
+			NEXT_LATCHES.PC = BUS;
+			break;
+		case 2 :
+			NEXT_LATCHES.PC = eval_Address();
+			break;
+		default :
+			printf("Not a valid PCmux code\n");
+	}
 }
 
 void eval_micro_sequencer() {
@@ -660,7 +847,7 @@ void eval_micro_sequencer() {
     int j4 = CURRENT_LATCHES.MICROINSTRUCTION[J4];
     int j5 = CURRENT_LATCHES.MICROINSTRUCTION[J5];
 
-    int ir11 = mask(CURRENT_LATCHES.IR, 0x0800) >> 11;
+    int ir11 = mask_shfR(CURRENT_LATCHES.IR, 0x0800, 11);
     int cond = GetCOND(CURRENT_LATCHES.MICROINSTRUCTION);
 
     switch (cond) {
@@ -675,7 +862,7 @@ void eval_micro_sequencer() {
     }
 
     if (CURRENT_LATCHES.MICROINSTRUCTION[IRD])
-        NEXT_LATCHES.STATE_NUMBER = mask((mask(CURRENT_LATCHES.IR, 0xF000) >> 12), 0x003F);
+        NEXT_LATCHES.STATE_NUMBER = mask( mask_shfR(CURRENT_LATCHES.IR, 0xF000, 12), 0x003F );
     else
         NEXT_LATCHES.STATE_NUMBER = j5 << 5 + j4 << 4 + j3 << 3 + j2 << 2 + j1 << 1 + j0;
 
@@ -684,7 +871,7 @@ void eval_micro_sequencer() {
 
 }
 
-
+int memCycles = 0; 
 void cycle_memory() {
  
     /* 
@@ -694,10 +881,17 @@ void cycle_memory() {
     * cycle to prepare microsequencer for the fifth cycle.  
     */
 
+	if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		memCycles++;
+		if (memCycles == 4)
+			NEXT_LATCHES.READY = 1;
+	}
+	else {
+		memCycles = 0;
+		NEXT_LATCHES.READY = 0;
+	}
 }
 
-
-int gatePCVal, gateMARMUXVal;
 void eval_bus_drivers() {
 
     /* 
@@ -710,12 +904,13 @@ void eval_bus_drivers() {
     *         Gate_MDR.
     */
 
-    gateALUVal = eval_ALU();
-    gateSHFVal = eval_SHF();
-    gateMDRVal = eval_MDR();
+	eval_MARMUX();
+	eval_PC();
+    eval_ALU();
+    eval_SHF();
+    eval_MDR();
 
 }
-
 
 void drive_bus() {
 
@@ -725,19 +920,13 @@ void drive_bus() {
     */
 
     BUS = 0;
-    if (GetGATE_PC(CURRENT_LATCHES.MICROINSTRUCTION))
-        BUS = Low16bits(gatePCVal);
-    else if (GetGATE_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
-        BUS = Low16bits(gateMDRVal);
-    else if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION))
-        BUS = Low16bits(gateALUVal);
-    else if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCTION))
-        BUS = Low16bits(gateMARMUXVal);
-    else if (GetGATE_SHF(CURRENT_LATCHES.MICROINSTRUCTION))
-        BUS = Low16bits(gateSHFVal);
+    if (GetGATE_PC(CURRENT_LATCHES.MICROINSTRUCTION)) 			BUS = Low16bits(gatePCVal);
+    else if (GetGATE_MDR(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateMDRVal);
+    else if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateALUVal);
+    else if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateMARMUXVal);
+    else if (GetGATE_SHF(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateSHFVal);
 
 }
-
 
 void latch_datapath_values() {
 
@@ -746,6 +935,14 @@ void latch_datapath_values() {
     * values in the data path at the end of this cycle.  Some values
     * require sourcing the bus; therefore, this routine has to come 
     * after drive_bus.
-    */       
+    */
+
+    if (GetLD_MAR(CURRENT_LATCHES.MICROINSTRUCTION)) latch_MAR();
+    if (GetLD_MDR(CURRENT_LATCHES.MICROINSTRUCTION)) latch_MDR();
+    if (GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION)) latch_IR();
+    if (GetLD_BEN(CURRENT_LATCHES.MICROINSTRUCTION)) latch_BEN();
+    if (GetLD_REG(CURRENT_LATCHES.MICROINSTRUCTION)) latch_REG();
+    if (GetLD_CC(CURRENT_LATCHES.MICROINSTRUCTION)) latch_CC();
+    if (GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION)) latch_PC();
 
 }
