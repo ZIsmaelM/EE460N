@@ -574,6 +574,76 @@ int main(int argc, char *argv[]) {
    Begin your code here                        */
 /***************************************************************/
 
+#define Low8bits(x) ((x) & 0xFF)
+
+int mask(int x, int mask) {return ((x) & mask);}
+
+int sext_8(int x, int numBits) {
+    if (x >> numBits-1 == 1)
+        return x | 0xFF00;
+    else
+        return x & 0x00FF;
+}
+
+int gateALUVal;
+int eval_ALU() {
+    int bit5 = (CURRENT_LATCHES.IR >> 5) % 2;
+    int reg11_9 = mask(CURRENT_LATCHES.IR, 0x0E00) >> 9;
+    int reg8_6 = mask(CURRENT_LATCHES.IR, 0x01C0) >> 6;
+    int sr2;
+
+    // check if 2nd source is register value or immediate value
+    if (bit5) {
+        sr2 = Low16bits(mask(CURRENT_LATCHES.IR, 0x0001F));
+        
+        // check if imm5 value is negative
+        if ((CURRENT_LATCHES.IR >> 4) % 2)
+            sr2 = Low16bits(sr2 | 0xFFE0);
+    }
+    else
+        sr2 = CURRENT_LATCHES.REGS[mask(CURRENT_LATCHES.IR, 0x007)];
+
+    int aluKVal = GetALUK(CURRENT_LATCHES.MICROINSTRUCTION);
+    switch (aluKVal) {
+        // ADD
+        case 0 :
+            gateALUVal = CURRENT_LATCHES.REGS[reg8_6] + sr2;
+            break;
+        // AND
+        case 1 :
+            gateALUVal = CURRENT_LATCHES.REGS[reg8_6] & sr2;
+            break;
+        // XOR
+        case 2 :
+            gateALUVal = CURRENT_LATCHES.REGS[reg8_6] ^ sr2;
+            break;
+        // PASSA
+        case 3 :
+            gateALUVal = CURRENT_LATCHES.REGS[reg11_9];
+            break;
+    }   
+}
+
+int gateSHFVal;
+int eval_SHF() {
+    
+}
+
+int gateMDRVal;
+int eval_MDR() {
+    // WORD = 1, BYTE = 0
+    if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION))
+        gateMDRVal = CURRENT_LATCHES.MDR;
+    else {
+        int low8 = Low8bits(CURRENT_LATCHES.MDR);
+        
+        // sign extend the byte value
+        if (mask(low8,0x0080) == 1)
+            gateMDRVal = low8 | 0xFF00;
+        else
+            gateMDRVal = low8 & 0x00FF;
+    }
+}
 
 void eval_micro_sequencer() {
 
@@ -590,7 +660,8 @@ void eval_micro_sequencer() {
     int j4 = CURRENT_LATCHES.MICROINSTRUCTION[J4];
     int j5 = CURRENT_LATCHES.MICROINSTRUCTION[J5];
 
-    int ir11 = (CURRENT_LATCHES.IR & 0x0800) >> 11;
+    int ir11 = mask(CURRENT_LATCHES.IR, 0x0800) >> 11;
+    int cond = GetCOND(CURRENT_LATCHES.MICROINSTRUCTION);
 
     switch (cond) {
         case 1 :
@@ -604,7 +675,7 @@ void eval_micro_sequencer() {
     }
 
     if (CURRENT_LATCHES.MICROINSTRUCTION[IRD])
-        NEXT_LATCHES.STATE_NUMBER = ((CURRENT_LATCHES.IR & 0xF000) >> 12) & 0x003F;
+        NEXT_LATCHES.STATE_NUMBER = mask((mask(CURRENT_LATCHES.IR, 0xF000) >> 12), 0x003F);
     else
         NEXT_LATCHES.STATE_NUMBER = j5 << 5 + j4 << 4 + j3 << 3 + j2 << 2 + j1 << 1 + j0;
 
@@ -626,18 +697,22 @@ void cycle_memory() {
 }
 
 
-
+int gatePCVal, gateMARMUXVal;
 void eval_bus_drivers() {
 
     /* 
     * Datapath routine emulating operations before driving the bus.
     * Evaluate the input of tristate drivers 
-    *             Gate_MARMUX,
+    *         Gate_MARMUX,
     *         Gate_PC,
     *         Gate_ALU,
     *         Gate_SHF,
     *         Gate_MDR.
-    */    
+    */
+
+    gateALUVal = eval_ALU();
+    gateSHFVal = eval_SHF();
+    gateMDRVal = eval_MDR();
 
 }
 
@@ -647,7 +722,19 @@ void drive_bus() {
     /* 
     * Datapath routine for driving the bus from one of the 5 possible 
     * tristate drivers. 
-    */       
+    */
+
+    BUS = 0;
+    if (GetGATE_PC(CURRENT_LATCHES.MICROINSTRUCTION))
+        BUS = Low16bits(gatePCVal);
+    else if (GetGATE_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
+        BUS = Low16bits(gateMDRVal);
+    else if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION))
+        BUS = Low16bits(gateALUVal);
+    else if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCTION))
+        BUS = Low16bits(gateMARMUXVal);
+    else if (GetGATE_SHF(CURRENT_LATCHES.MICROINSTRUCTION))
+        BUS = Low16bits(gateSHFVal);
 
 }
 
