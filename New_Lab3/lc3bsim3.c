@@ -778,7 +778,7 @@ void latch_MDR() {
 
 	if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION) && CURRENT_LATCHES.READY) {
 		if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) {
-			NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR/2][1] << 8 + MEMORY[CURRENT_LATCHES.MAR/2][0];
+			NEXT_LATCHES.MDR = Low16bits((MEMORY[CURRENT_LATCHES.MAR/2][1] << 8) + (MEMORY[CURRENT_LATCHES.MAR/2][0]));
 		}
 		// This is for state 29, which differs in data size
 		// however, the appC states MDR still gets the entire 16bits of mem
@@ -795,6 +795,7 @@ void latch_MDR() {
 }
 
 void latch_IR() {
+	printf("NEXT IR: 0x%.4x\n", BUS );
 	NEXT_LATCHES.IR = BUS;
 }
 
@@ -843,7 +844,7 @@ void eval_micro_sequencer() {
     * micro sequencer logic. Latch the next microinstruction.
     */
 
-    printf("STATE: %d\n", CURRENT_LATCHES.STATE_NUMBER);
+    printf("STATE: %d\t CYCLE: %d\n", CURRENT_LATCHES.STATE_NUMBER, CYCLE_COUNT+1);
     int j0 = CURRENT_LATCHES.MICROINSTRUCTION[J0];
     int j1 = CURRENT_LATCHES.MICROINSTRUCTION[J1];
     int j2 = CURRENT_LATCHES.MICROINSTRUCTION[J2];
@@ -857,10 +858,13 @@ void eval_micro_sequencer() {
     switch (cond) {
         case 1 :
             j1 = j1 || CURRENT_LATCHES.READY;
+            break;
         case 2 :
             j2 = j2 || CURRENT_LATCHES.BEN;
+            break;
         case 3 :
             j0 = j0 || ir11;
+            break;
         default :
             break;
     }
