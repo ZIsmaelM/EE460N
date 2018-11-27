@@ -574,6 +574,61 @@ int main(int argc, char *argv[]) {
    Begin your code here                        */
 /***************************************************************/
 
+/***************/
+// DEBUG CODE  //
+/***************/
+
+void printSTATE(int x) {
+	switch (x) {
+		case 0 :
+			printf("state: BR\n");
+			break;
+		case 1 :
+			printf("state: ADD\n");
+			break;
+		case 5 :
+			printf("state: AND\n");
+			break;
+		case 9 :
+			printf("state: XOR\n");
+			break;
+		case 15 :
+			printf("state: TRAP\n");
+			break;
+		case 13 :
+			printf("state: SHF\n");
+			break;
+		case 14 :
+			printf("state: LEA\n");
+			break;
+		case 2 :
+			printf("state: LDB\n");
+			break;
+		case 6 :
+			printf("state: LDW\n");
+			break;
+		case 7 :
+			printf("state: STW\n");
+			break;
+		case 3 :
+			printf("state: STB\n");
+			break;
+		case 12 :
+			printf("state: JMP\n");
+			break;
+		case 20 :
+			printf("state: JSRR\n");
+			break;
+		case 21 :
+			printf("state: JSR\n");
+			break;
+		default :
+			//printf("\n");
+			break;
+	}
+}
+/***************/
+
 #define Low8bits(x) ((x) & 0xFF)
 
 int mask(int x, int mask) {return ((x) & mask);}
@@ -737,7 +792,10 @@ void eval_SHF(void) {
 		sumBits = sumBits >> 1;
 	}
 
+	int negFlag = 0;
     int data = Low16bits(CURRENT_LATCHES.REGS[sr]);
+    if (data > 32767) negFlag = 1;
+
     int bit15 = mask(data, 0x8000);
     switch (shfCode) {
     	case 0 :
@@ -745,10 +803,14 @@ void eval_SHF(void) {
     		break;
     	case 1 :
     		gateSHFVal = Low16bits(data >> shfAmount);
+    		break;
     	case 3 :
-    		gateSHFVal = Low16bits( mask( (data >> shfAmount), maskBits ) );
+    		gateSHFVal = (negFlag ? (Low16bits((data >> shfAmount) | maskBits))
+    							  : (Low16bits((data >> shfAmount) & maskBits)));
+    		break;
     	default :
     		gateSHFVal = gateSHFVal;
+    		break;
     }
 }
 
@@ -795,7 +857,7 @@ void latch_MDR() {
 }
 
 void latch_IR() {
-	printf("NEXT IR: 0x%.4x\n", BUS );
+	printf("Current IR: 0x%.4x\n", BUS );
 	NEXT_LATCHES.IR = BUS;
 }
 
@@ -869,8 +931,14 @@ void eval_micro_sequencer() {
             break;
     }
 
-    if (CURRENT_LATCHES.MICROINSTRUCTION[IRD])
+    
+
+    if (CURRENT_LATCHES.MICROINSTRUCTION[IRD]) {
         NEXT_LATCHES.STATE_NUMBER = mask( mask_shfR(CURRENT_LATCHES.IR, 0xF000, 12), 0x003F );
+        // debug code
+	    printSTATE(mask( mask_shfR(CURRENT_LATCHES.IR, 0xF000, 12), 0x003F ));
+	    //
+    }
     else
         NEXT_LATCHES.STATE_NUMBER = (j5 << 5) + (j4 << 4) + (j3 << 3) + (j2 << 2) + (j1 << 1) + j0;
 
