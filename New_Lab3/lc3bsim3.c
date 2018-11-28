@@ -792,9 +792,16 @@ void eval_SHF(void) {
 		sumBits = sumBits >> 1;
 	}
 
+	// Check if the data is positive or negative
 	int negFlag = 0;
     int data = Low16bits(CURRENT_LATCHES.REGS[sr]);
-    if (data > 32767) negFlag = 1;
+    if (data > 32767) {
+    	negFlag = 1;
+    }
+    // invert the mask bits if the data is positive
+    else {
+    	maskBits = maskBits ^ 0xFFFF;
+    }
 
     int bit15 = mask(data, 0x8000);
     switch (shfCode) {
