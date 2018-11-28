@@ -853,7 +853,7 @@ void latch_MDR() {
 		// however, the appC states MDR still gets the entire 16bits of mem
 		// The desired byte is selected in the following state, 31
 		else {
-			NEXT_LATCHES.MDR = MEMORY[CURRENT_LATCHES.MAR/2][1] << 8 + MEMORY[CURRENT_LATCHES.MAR/2][0];;
+			NEXT_LATCHES.MDR = 0xFF00 | mask(MEMORY[CURRENT_LATCHES.MAR/2][0], 0x00FF);
 		}
 	}
 	else {
@@ -903,6 +903,22 @@ void latch_PC() {
 			break;
 		default :
 			printf("Not a valid PCmux code\n");
+	}
+}
+
+void write_to_mem() {
+	int bytePos = mask(CURRENT_LATCHES.MAR, 0x0001);
+	// word
+	if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		MEMORY[CURRENT_LATCHES.MAR/2][1] = Low16bits(mask(CURRENT_LATCHES.MDR, 0xff00));
+		MEMORY[CURRENT_LATCHES.MAR/2][0] = Low8bits(mask(CURRENT_LATCHES.MDR, 0x00ff));
+	}
+	// byte	
+	else {
+		if (bytePos)
+			MEMORY[CURRENT_LATCHES.MAR/2][1] = Low16bits(CURRENT_LATCHES.MDR);
+		else
+			MEMORY[CURRENT_LATCHES.MAR/2][0] = Low16bits(CURRENT_LATCHES.MDR);
 	}
 }
 
@@ -968,6 +984,9 @@ void cycle_memory() {
 		memCycles++;
 		if (memCycles == 4)
 			NEXT_LATCHES.READY = 1;
+
+		if (NEXT_LATCHES.READY && GetR_W(CURRENT_LATCHES.MICROINSTRUCTION))
+			write_to_mem();
 	}
 	else {
 		memCycles = 0;
