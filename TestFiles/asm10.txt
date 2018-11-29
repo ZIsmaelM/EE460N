@@ -1,4 +1,7 @@
 	.orig x0002
-	LDB R0,R6,#1
+	AND R0,R0,#0
+	LEA R5, A
+	LDB R0,R5,#1
 	HALT
+A	.fill xbeef
 	.end
