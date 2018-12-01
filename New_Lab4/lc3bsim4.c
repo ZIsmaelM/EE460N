@@ -81,18 +81,20 @@ enum CS_BITS {
     DATA_SIZE,
     LSHF1,
 /* MODIFY: you have to add all your new control signals */
-    GATE_PSR,
-    GATE_NPCR,
-    GATE_SRR,
-    GATE_SPTRR,
-    LD_SRR,
+    LD_VTVR,
     LD_PSR,
+    LD_SPCR,
     LD_VTBR,
-    LD_NPCR,
-    LD_USPR,
-    LD_SSPR,
     LD_SPTRR,
+    LD_USBR,
+    LD_SSBR,
     REGMUX1, REGMUX0,
+    PSRMUX,
+    SPTRRMUX,
+    GATE_VTVR,
+    GATE_PSR,
+    GATE_SPTRR,
+    GATE_SPCR,
     CONTROL_STORE_BITS
 } CS_BITS;
 
@@ -128,18 +130,20 @@ int GetR_W(int *x)           { return(x[R_W]); }
 int GetDATA_SIZE(int *x)     { return(x[DATA_SIZE]); } 
 int GetLSHF1(int *x)         { return(x[LSHF1]); }
 /* MODIFY: you can add more Get functions for your new control signals */
-int GetGATE_PSR(int *x)         { return(x[GATE_PSR]); }
-int GetGATE_NPCR(int *x)         { return(x[GATE_NPCR]); }
-int GetGATE_SRR(int *x)         { return(x[GATE_SRR]); }
-int GetGATE_SPTRR(int *x)         { return(x[GATE_SPTRR]); }
-int GetLD_SRR(int *x)        { return(x[LD_SRR]); }
-int GetLD_PSR(int *x)        { return(x[LD_PSR]); }
-int GetLD_VTBR(int *x)         { return(x[LD_VTBR]); }
-int GetLD_NPCR(int *x)        { return(x[LD_NPCR]); }
-int GetLD_USPR(int *x)        { return(x[LD_USPR]); }
-int GetLD_SSPR(int *x)        { return(x[LD_SSPR]); }
-int GetLD_SPTRR(int *x)         { return(x[LD_SPTRR]); }
-int GetREGMUX(int *x)      { return((x[REGMUX1] << 1) + x[REGMUX0]); }
+int GetLD_VTVR(int *x)			{ return(x[LD_VTVR]); }
+int GetLD_PSR(int *x)			{ return(x[LD_PSR]); }
+int GetLD_SPCR(int *x)			{ return(x[LD_SPCR]); }
+int GetLD_VTBR(int *x)			{ return(x[LD_VTBR]); }
+int GetLD_SPTRR(int *x)			{ return(x[LD_SPTRR]); }
+int GetLD_USBR(int *x)			{ return(x[LD_USBR]); }
+int GetLD_SSBR(int *x)			{ return(x[LD_SSBR]); }
+int GetREGMUX(int *x)      		{ return((x[REGMUX1] << 1) + x[REGMUX0]); }
+int GetPSRMUX(int *x)			{ return(x[PSRMUX]); }
+int GetSPTRRMUX(int *x)			{ return(x[SPTRRMUX]); }
+int GetGATE_VTVR(int *x)		{ return(x[GATE_VTVR]); }
+int GetGATE_PSR(int *x)			{ return(x[GATE_PSR]); }
+int GetGATE_SPTRR(int *x)		{ return(x[GATE_SPTRR]); }
+int GetGATE_SPCR(int *x)		{ return(x[GATE_SPCR]); }
 
 /***************************************************************/
 /* The control store rom.                                      */
@@ -200,10 +204,11 @@ int SSP; /* Initial value of system stack pointer */
 
 /* additional lab 4 registers */
 int PSR;
-int SRR;
+int VTVR;
 int VTBR;
-int NPCR;
-int USPR;
+int SPCR;
+int USBR;
+int SSBR;
 int SPTRR;
 
 } System_Latches;
@@ -697,34 +702,6 @@ int sext(int x, int numBits) {
 	}
 }
 
-int sext_8(int x, int numBits) {
-    if (x >> numBits-1 == 1)
-        return x | 0xFF00;
-    else
-        return x & 0x00FF;
-}
-
-int sext_6(int x, int numBits) {
-    if (x >> numBits-1 == 1)
-        return x | 0xFFC0;
-    else
-        return x & 0x003F;
-}
-
-int sext_9(int x, int numBits) {
-    if (x >> numBits-1 == 1)
-        return x | 0xFE00;
-    else
-        return x & 0x01FF;
-}
-
-int sext_11(int x, int numBits) {
-    if (x >> numBits-1 == 1)
-        return x | 0xF800;
-    else
-        return x & 0x07FF;
-}
-
 int eval_Address() {
 	// PC = 0, BaseReg = 1
 	int addr1;
@@ -817,10 +794,10 @@ void eval_ALU(void) {
         default :
 			printf("Not a valid aluK code\n");
     }
-    printf("DR: %d\n", reg11_9); 
-    printf("SR1: %d\n", reg8_6);
-    printf("SR2: %d\n", sr2);
-    printf("Res: %d\n", gateALUVal);
+    // printf("DR: %d\n", reg11_9); 
+    // printf("SR1: %d\n", reg8_6);
+    // printf("SR2: %d\n", sr2);
+    // printf("Res: %d\n", gateALUVal);
 }
 
 int gateSHFVal;
@@ -913,7 +890,7 @@ void latch_MDR() {
 }
 
 void latch_IR() {
-	printf("Current IR: 0x%.4x\n", BUS );
+	//printf("Current IR: 0x%.4x\n", BUS );
 	NEXT_LATCHES.IR = BUS;
 }
 
