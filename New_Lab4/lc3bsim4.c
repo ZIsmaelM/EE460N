@@ -684,6 +684,23 @@ void printSTATE(int x) {
 int mask(int x, int mask) {return ((x) & mask);}
 int mask_shfR(int x, int mask, int shfVal) {return ((x) & mask) >> shfVal;}
 
+int supervisorMode = 0;
+int IOES = 0;
+int IAES = 0;
+int RTIS = 0;
+void ieHandler(int vectorCode) {
+	supervisorMode = 1;
+
+	if (vectorCode == 1)
+		NEXT_LATCHES.INTV = vectorCode;
+	else
+		NEXT_LATCHES.EXCV = vectorCode;
+
+	IOES = 1;
+	IAES = 0;
+	RTIS = 0;
+}
+
 int sext(int x, int numBits) {
 	int neg = (x >> numBits-1) % 2;
 
@@ -860,7 +877,19 @@ void eval_MDR(void) {
 }
 
 void latch_MAR() {
-	NEXT_LATCHES.MAR = BUS;
+	if (GetMARMUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		// protection exception check
+		if (BUS >= 0x000 && BUS <= 0x2FFF)
+			ieHandler(0x02);
+		// unaligned access exception check
+		else if (BUS % 2 && GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
+			ieHandler(0x03);
+		else
+			NEXT_LATCHES.MAR = BUS;
+	}
+	else {
+		NEXT_LATCHES.MAR = BUS;
+	}
 }
 
 void latch_MDR() {
@@ -948,12 +977,169 @@ void write_to_mem() {
 	}
 }
 
+//		LAB 4 FUNCTIONS 	//
+int gateVTVRVal;
+void eval_VTVR() {
+	gateVTVRVal = CURRENT_LATCHES.VTBR + (CURRENT_LATCHES.VTVR << 1);
+}
+
+int gatePSRVal;
+void eval_PSR() {
+	gatePSRVal = CURRENT_LATCHES.PSR;
+}
+
+int gateSPTRRVal;
+void eval_SPTRR() {
+	gateSPTRRVal = CURRENT_LATCHES.SPTRR;
+}
+
+int gateSPCRVal;
+void eval_SPCR() {
+	gateSPCRVal = CURRENT_LATCHES.SPCR;
+}
+
+void latch_VTVR() {
+	if (CURRENT_LATCHES.INTV != 0)
+		NEXT_LATCHES.VTVR = CURRENT_LATCHES.INTV;
+	if (CURRENT_LATCHES.EXCV != 0)
+		NEXT_LATCHES.VTVR = CURRENT_LATCHES.EXCV;
+}
+
+void latch_PSR() {
+	if (GetPSRMUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		NEXT_LATCHES.PSR = BUS;
+	}
+	else {
+		if (CURRENT_LATCHES.VTVR != 0)
+			NEXT_LATCHES.PSR = 0x8000 || mask(CURRENT_LATCHES.PSR, 0x7FFF);
+		else
+			NEXT_LATCHES.PSR = mask(CURRENT_LATCHES.PSR, 0x7FFF);
+	}
+}
+
+void latch_SPCR() {
+	NEXT_LATCHES.SPCR = CURRENT_LATCHES.PC - 2;
+}
+
+void latch_VTBR() {
+	NEXT_LATCHES.VTBR = 0x0200;
+}
+
+void latch_SPTRR() {
+	int muxSelect;
+	if (GetSPTRRMUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
+		muxSelect = 2;
+	}
+	else {
+		int vect = mask(CURRENT_LATCHES.VTVR, 0x0007);
+		switch (vect) {
+			case 0 :
+				muxSelect = 0;
+				break;
+			case 1 :
+				muxSelect = 1;
+				break;
+			default :
+				muxSelect = 3;
+		}
+	}
+
+	// Bad hacky fix......probably still won't work
+	if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION))
+		muxSelect = 0;
+
+	switch (muxSelect) {
+		case 0 :
+			NEXT_LATCHES.SPTRR = BUS;
+			break;
+		case 1 :
+			NEXT_LATCHES.SPTRR = BUS - 2;
+			break;
+		case 2 :
+			NEXT_LATCHES.SPTRR = CURRENT_LATCHES.USBR;
+			break;
+		case 3 :
+			NEXT_LATCHES.SPTRR = BUS + 2;
+			break;
+	}
+}
+
+void latch_USBR() {
+	CURRENT_LATCHES.USBR = BUS;
+}
+
+void latch_SSBR() {
+	CURRENT_LATCHES.SSBR = BUS;
+}
+
+int stateLUT(int currentState) {
+    int nextState;
+    switch(currentState) {
+        case 35 :
+            nextState = 36;
+            break;
+        case 18 :
+            nextState = 38;
+            break;
+        case 19 :
+            nextState = 38;
+            break;
+        case 38 :
+            nextState = 42;
+            break;
+        case 41 :
+            nextState = 49;
+            break;
+        case 49 :
+            nextState = 48;
+            break;
+        case 48 :
+            nextState = (IOES == 1 ? 54 : 50);
+            break;
+        case 54 :
+            nextState = (IAES == 1 ? 58 : 56);
+            IAES != IAES;
+            break;
+        case 56 :
+            nextState = 48;
+            break;
+        case 58 :
+            nextState = 50;
+            break;
+        case 50 :
+            nextState = (RTIS == 0 ? 53 : 52);
+            RTIS != RTIS;
+            break;
+        case 53 :
+            nextState = (IOES == 1 ? 18 : 48);
+            IOES != IOES;
+            break;
+        case 52 :
+            nextState = 60;
+            break;
+        case 60 :
+            nextState = 51;
+            break;
+        case 51 :
+            nextState = 18;
+            break;
+        default :
+            nextState = 18;
+    }
+    return nextState;
+}
+
+//		END OF LAB 4 FUNCTIONS 		//
+
 void eval_micro_sequencer() {
 
     /* 
     * Evaluate the address of the next state according to the 
     * micro sequencer logic. Latch the next microinstruction.
     */
+
+	if (CURRENT_LATCHES.STATE_NUMBER = 18)
+		supervisorMode = 0;
 
     printf("STATE: %d\t CYCLE: %d\n", CURRENT_LATCHES.STATE_NUMBER, CYCLE_COUNT+1);
     int j0 = CURRENT_LATCHES.MICROINSTRUCTION[J0];
@@ -990,6 +1176,19 @@ void eval_micro_sequencer() {
     }
     else
         NEXT_LATCHES.STATE_NUMBER = (j5 << 5) + (j4 << 4) + (j3 << 3) + (j2 << 2) + (j1 << 1) + j0;
+
+    //		lab 4 code		//
+
+    // interrupt check
+    if (CYCLE_COUNT == 300)
+    	ieHandler(0x01);
+    // illegal opcode check
+    if (NEXT_LATCHES.STATE_NUMBER == 10 || NEXT_LATCHES.STATE_NUMBER == 11)
+    	ieHandler(0x04);
+    if (supervisorMode)
+    	NEXT_LATCHES.STATE_NUMBER == stateLUT(CURRENT_LATCHES.STATE_NUMBER);
+
+    //		end lab 4 segment	//
 
     for(int i = 0; i < CONTROL_STORE_BITS; i++)
 		NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[NEXT_LATCHES.STATE_NUMBER][i];
@@ -1037,6 +1236,11 @@ void eval_bus_drivers() {
     eval_ALU();
     eval_SHF();
     eval_MDR();
+    // lab4 functions
+    eval_VTVR();
+    eval_PSR();
+    eval_SPTRR();
+    eval_SPCR();
 
 }
 
@@ -1053,6 +1257,11 @@ void drive_bus() {
     else if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateALUVal);
     else if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateMARMUXVal);
     else if (GetGATE_SHF(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateSHFVal);
+    // lab4 functions
+    else if (GetGATE_VTVR(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateVTVRVal);
+    else if (GetGATE_PSR(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gatePSRVal);
+    else if (GetGATE_SPTRR(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateSPTRRVal);
+    else if (GetGATE_SPCR(CURRENT_LATCHES.MICROINSTRUCTION)) 	BUS = Low16bits(gateSPCRVal);
 
 }
 
@@ -1065,12 +1274,20 @@ void latch_datapath_values() {
     * after drive_bus.
     */
 
-    if (GetLD_MAR(CURRENT_LATCHES.MICROINSTRUCTION)) latch_MAR();
-    if (GetLD_MDR(CURRENT_LATCHES.MICROINSTRUCTION)) latch_MDR();
-    if (GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION)) latch_IR();
-    if (GetLD_BEN(CURRENT_LATCHES.MICROINSTRUCTION)) latch_BEN();
-    if (GetLD_REG(CURRENT_LATCHES.MICROINSTRUCTION)) latch_REG();
-    if (GetLD_CC(CURRENT_LATCHES.MICROINSTRUCTION)) latch_CC();
-    if (GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION)) latch_PC();
+    if (GetLD_MAR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_MAR();
+    if (GetLD_MDR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_MDR();
+    if (GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION))		latch_IR();
+    if (GetLD_BEN(CURRENT_LATCHES.MICROINSTRUCTION))	latch_BEN();
+    if (GetLD_REG(CURRENT_LATCHES.MICROINSTRUCTION))	latch_REG();
+    if (GetLD_CC(CURRENT_LATCHES.MICROINSTRUCTION))		latch_CC();
+    if (GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION))		latch_PC();
+    // lab4 functions
+    if (GetLD_VTVR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_VTVR();
+    if (GetLD_PSR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_PSR();
+    if (GetLD_SPCR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_SPCR();
+    if (GetLD_VTBR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_VTBR();
+    if (GetLD_SPTRR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_SPTRR();
+    if (GetLD_USBR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_USBR();
+    if (GetLD_SSBR(CURRENT_LATCHES.MICROINSTRUCTION))	latch_SSBR();
 
 }
