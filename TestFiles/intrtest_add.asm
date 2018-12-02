@@ -1,0 +1,8 @@
+	.orig x3000
+	AND R0,R0,#0
+	ADD R1,R1,#15
+	LSHF R1,R1,#4
+LOOP	ADD R1,R1,#-1
+	BRp LOOP
+	HALT
+	.end
