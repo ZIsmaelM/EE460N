@@ -1,65 +1,88 @@
 
 Current register/bus values :
 -------------------------------------
-Cycle Count  : 299
-PC           : 0x301e
-IR           : 0x16fe
-STATE_NUMBER : 0x0021
+Cycle Count  : 100
+PC           : 0x3004
+IR           : 0x8000
+STATE_NUMBER : 0x0032
 
 BUS          : 0x0000
-MDR          : 0x03f9
-MAR          : 0x301c
+MDR          : 0x300c
+MAR          : 0x2ffe
 CCs: N = 0  Z = 0  P = 1
 Registers:
-0: 0x3024
-1: 0x0000
-2: 0x604c
-3: 0x000e
+0: 0x300c
+1: 0x300c
+2: 0x1a06
+3: 0x0000
 4: 0x0000
 5: 0x0000
-6: 0x0000
+6: 0x3000
 7: 0x0000
 
 
 Current register/bus values :
 -------------------------------------
-Cycle Count  : 317
-PC           : 0x3022
-IR           : 0x0000
-STATE_NUMBER : 0x0020
+Cycle Count  : 120
+PC           : 0x3008
+IR           : 0x6040
+STATE_NUMBER : 0x0021
 
-BUS          : 0x0000
-MDR          : 0x0000
-MAR          : 0x3020
+BUS          : 0x3006
+MDR          : 0x3007
+MAR          : 0x3006
 CCs: N = 0  Z = 0  P = 1
 Registers:
-0: 0x3024
-1: 0x0000
-2: 0x604c
-3: 0x000e
+0: 0x3007
+1: 0x300c
+2: 0x1a06
+3: 0x0000
 4: 0x0000
 5: 0x0000
-6: 0x0000
+6: 0x3000
 7: 0x0000
 
 
-Memory content [0x4000..0x4020] :
+Current register/bus values :
 -------------------------------------
- 0x4000 (16384) : 0x0000
- 0x4002 (16386) : 0x0000
- 0x4004 (16388) : 0x0000
- 0x4006 (16390) : 0x0000
- 0x4008 (16392) : 0x0000
- 0x400a (16394) : 0x0000
- 0x400c (16396) : 0x0000
- 0x400e (16398) : 0x0000
- 0x4010 (16400) : 0x0000
- 0x4012 (16402) : 0x0000
- 0x4014 (16404) : 0x0000
- 0x4016 (16406) : 0x0000
- 0x4018 (16408) : 0x0000
- 0x401a (16410) : 0x0000
- 0x401c (16412) : 0x0000
- 0x401e (16414) : 0x0000
- 0x4020 (16416) : 0x0000
+Cycle Count  : 140
+PC           : 0x300c
+IR           : 0x14a5
+STATE_NUMBER : 0x0021
+
+BUS          : 0x0000
+MDR          : 0x0005
+MAR          : 0x300a
+CCs: N = 0  Z = 0  P = 1
+Registers:
+0: 0x3007
+1: 0x300c
+2: 0x0005
+3: 0x0000
+4: 0x0000
+5: 0x0000
+6: 0x3000
+7: 0x0000
+
+
+Current register/bus values :
+-------------------------------------
+Cycle Count  : 152
+PC           : 0x0000
+IR           : 0xf025
+STATE_NUMBER : 0x0012
+
+BUS          : 0x0000
+MDR          : 0x0000
+MAR          : 0x004a
+CCs: N = 0  Z = 0  P = 1
+Registers:
+0: 0x3007
+1: 0x300c
+2: 0x0005
+3: 0x0000
+4: 0x0000
+5: 0x0000
+6: 0x3000
+7: 0x300c
 

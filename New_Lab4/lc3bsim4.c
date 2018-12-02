@@ -90,7 +90,7 @@ enum CS_BITS {
     LD_SSBR,
     REGMUX1, REGMUX0,
     PSRMUX,
-    SPTRRMUX,
+    SPTRRMUX1, SPTRRMUX0, 
     GATE_VTVR,
     GATE_PSR,
     GATE_SPTRR,
@@ -139,7 +139,7 @@ int GetLD_USBR(int *x)			{ return(x[LD_USBR]); }
 int GetLD_SSBR(int *x)			{ return(x[LD_SSBR]); }
 int GetREGMUX(int *x)      		{ return((x[REGMUX1] << 1) + x[REGMUX0]); }
 int GetPSRMUX(int *x)			{ return(x[PSRMUX]); }
-int GetSPTRRMUX(int *x)			{ return(x[SPTRRMUX]); }
+int GetSPTRRMUX(int *x)			{ return((x[SPTRRMUX1] << 1) + x[SPTRRMUX0]); }
 int GetGATE_VTVR(int *x)		{ return(x[GATE_VTVR]); }
 int GetGATE_PSR(int *x)			{ return(x[GATE_PSR]); }
 int GetGATE_SPTRR(int *x)		{ return(x[GATE_SPTRR]); }
@@ -685,17 +685,41 @@ int mask(int x, int mask) {return ((x) & mask);}
 int mask_shfR(int x, int mask, int shfVal) {return ((x) & mask) >> shfVal;}
 
 int supervisorMode = 0;
+int savedRegs[LC_3b_REGS];
 int IOES = 0;
 int IAES = 0;
 int RTIS = 0;
 void ieHandler(int vectorCode) {
 	supervisorMode = 1;
-
-	if (vectorCode == 1)
+	printf("HANDLER STARTED: ");
+	if (vectorCode == 1) {
 		NEXT_LATCHES.INTV = vectorCode;
-	else
+		NEXT_LATCHES.STATE_NUMBER = 38;
+		printf("Interrupt\n");
+	}
+	else {
 		NEXT_LATCHES.EXCV = vectorCode;
+		NEXT_LATCHES.STATE_NUMBER = 36;
+		switch (vectorCode) {
+			case 2 :
+				printf("Protection EXC\n");
+				break;
+			case 3 :
+				printf("Unaligned EXC\n");
+				break;
+			case 4 :
+				printf("Unknown EXC\n");
+				break;
+		}
+	}
 
+	for(int i = 0; i < LC_3b_REGS; i++)
+		savedRegs[i] = CURRENT_LATCHES.REGS[i];
+
+	for(int i = 0; i < CONTROL_STORE_BITS; i++)
+		NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[NEXT_LATCHES.STATE_NUMBER][i];
+	
+	NEXT_LATCHES.SSBR = CURRENT_LATCHES.SSP;
 	IOES = 1;
 	IAES = 0;
 	RTIS = 0;
@@ -790,6 +814,13 @@ void eval_ALU(void) {
     else
         sr2 = CURRENT_LATCHES.REGS[mask(CURRENT_LATCHES.IR, 0x007)];
 
+    // lab 4 code
+	if (GetLD_USBR(CURRENT_LATCHES.MICROINSTRUCTION) ||
+		GetLD_SPTRR(CURRENT_LATCHES.MICROINSTRUCTION))
+	{
+		reg11_9 = 6;
+	}
+
     int aluKVal = GetALUK(CURRENT_LATCHES.MICROINSTRUCTION);
     switch (aluKVal) {
         // ADD
@@ -879,7 +910,8 @@ void eval_MDR(void) {
 void latch_MAR() {
 	if (GetMARMUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
 		// protection exception check
-		if (BUS >= 0x000 && BUS <= 0x2FFF)
+		printf("Supervisor Mode: %d\n", supervisorMode);
+		if (BUS >= 0x000 && BUS <= 0x2FFF && !supervisorMode)
 			ieHandler(0x02);
 		// unaligned access exception check
 		else if (BUS % 2 && GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
@@ -916,6 +948,12 @@ void latch_MDR() {
 		int isAWord = GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION);
 		NEXT_LATCHES.MDR = (isAWord ? CURRENT_LATCHES.REGS[sr] : mask(CURRENT_LATCHES.REGS[sr], 0x00FF));
 	}
+
+	if (GetGATE_PSR(CURRENT_LATCHES.MICROINSTRUCTION) || 
+		GetGATE_SPCR(CURRENT_LATCHES.MICROINSTRUCTION))
+	{
+		NEXT_LATCHES.MDR = BUS;
+	}
 }
 
 void latch_IR() {
@@ -934,13 +972,30 @@ void latch_BEN() {
 void latch_REG() {
 	// if DRMUX = 1, dr = 7 else dr = reg11_9
 	int dr = (GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION) ? 7 : mask_shfR(CURRENT_LATCHES.IR, 0x0E00, 9));
-	NEXT_LATCHES.REGS[dr] = BUS;
+	// NEXT_LATCHES.REGS[dr] = BUS;
+
+	int muxSelect = GetREGMUX(CURRENT_LATCHES.MICROINSTRUCTION);
+	switch (muxSelect) {
+		case 0 :
+			NEXT_LATCHES.REGS[dr] = BUS;
+			break;
+		case 1 :
+			NEXT_LATCHES.REGS[6] = CURRENT_LATCHES.SSBR;
+			break;
+		default :
+			NEXT_LATCHES.REGS[dr] = 0xCACA; // TODO
+	}
 }
 
 void latch_CC() {
 	NEXT_LATCHES.N = (BUS > 32767 ? 1 : 0);
 	NEXT_LATCHES.Z = (BUS == 0 ? 1 : 0);
 	NEXT_LATCHES.P = ((BUS > 0 && BUS <= 32767) ? 1 : 0);
+
+	int ccbits = Low16bits((NEXT_LATCHES.N << 2) + (NEXT_LATCHES.Z << 1) + (NEXT_LATCHES.P));
+	//printf("ccbits: 0x%.4X\n", ccbits);
+	NEXT_LATCHES.PSR = mask(CURRENT_LATCHES.PSR,0x8000) | ccbits;
+	//printf("PSR: 0x%.4X\n", NEXT_LATCHES.PSR);
 }
 
 void latch_PC() {
@@ -965,7 +1020,7 @@ void write_to_mem() {
 	int bytePos = mask(CURRENT_LATCHES.MAR, 0x0001);
 	// word
 	if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) {
-		MEMORY[CURRENT_LATCHES.MAR/2][1] = Low16bits(mask(CURRENT_LATCHES.MDR, 0xff00));
+		MEMORY[CURRENT_LATCHES.MAR/2][1] = Low8bits(mask(CURRENT_LATCHES.MDR, 0xff00) >> 8);
 		MEMORY[CURRENT_LATCHES.MAR/2][0] = Low8bits(mask(CURRENT_LATCHES.MDR, 0x00ff));
 	}
 	// byte	
@@ -1003,6 +1058,12 @@ void latch_VTVR() {
 		NEXT_LATCHES.VTVR = CURRENT_LATCHES.INTV;
 	if (CURRENT_LATCHES.EXCV != 0)
 		NEXT_LATCHES.VTVR = CURRENT_LATCHES.EXCV;
+
+	if (CURRENT_LATCHES.STATE_NUMBER == 53) {
+		NEXT_LATCHES.VTVR = 0;
+		NEXT_LATCHES.INTV = 0;
+		NEXT_LATCHES.EXCV = 0;
+	}
 }
 
 void latch_PSR() {
@@ -1026,28 +1087,8 @@ void latch_VTBR() {
 }
 
 void latch_SPTRR() {
-	int muxSelect;
-	if (GetSPTRRMUX(CURRENT_LATCHES.MICROINSTRUCTION)) {
-		muxSelect = 2;
-	}
-	else {
-		int vect = mask(CURRENT_LATCHES.VTVR, 0x0007);
-		switch (vect) {
-			case 0 :
-				muxSelect = 0;
-				break;
-			case 1 :
-				muxSelect = 1;
-				break;
-			default :
-				muxSelect = 3;
-		}
-	}
 
-	// Bad hacky fix......probably still won't work
-	if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION))
-		muxSelect = 0;
-
+	int muxSelect = GetSPTRRMUX(CURRENT_LATCHES.MICROINSTRUCTION);
 	switch (muxSelect) {
 		case 0 :
 			NEXT_LATCHES.SPTRR = BUS;
@@ -1062,10 +1103,11 @@ void latch_SPTRR() {
 			NEXT_LATCHES.SPTRR = BUS + 2;
 			break;
 	}
+
 }
 
 void latch_USBR() {
-	CURRENT_LATCHES.USBR = BUS;
+	CURRENT_LATCHES.USBR = BUS; // maybe replace BUS with straight CURRENT_LATCHES.REGS[6] ?
 }
 
 void latch_SSBR() {
@@ -1075,18 +1117,27 @@ void latch_SSBR() {
 int stateLUT(int currentState) {
     int nextState;
     switch(currentState) {
+    	case 8 :
+    		nextState = 50;
+    		break;
+    	case 36 :
+    		nextState = 42;
+    		break;
         case 35 :
-            nextState = 36;
+            nextState = (IAES == 0 ? 36 : 32);
             break;
         case 18 :
-            nextState = 38;
+            nextState = (IAES == 0 ? 38 : 33);
             break;
         case 19 :
-            nextState = 38;
+            nextState = (IAES == 0 ? 38 : 33);
             break;
         case 38 :
             nextState = 42;
             break;
+        case 42 :
+        	nextState = 41;
+        	break;
         case 41 :
             nextState = 49;
             break;
@@ -1098,33 +1149,31 @@ int stateLUT(int currentState) {
             break;
         case 54 :
             nextState = (IAES == 1 ? 58 : 56);
-            IAES != IAES;
+            nextState = (CURRENT_LATCHES.READY == 1 ? nextState : 54);
             break;
         case 56 :
             nextState = 48;
+            IAES = 1;
             break;
         case 58 :
             nextState = 50;
             break;
         case 50 :
             nextState = (RTIS == 0 ? 53 : 52);
-            RTIS != RTIS;
+            nextState = (CURRENT_LATCHES.READY == 1 ? nextState : 50);
             break;
         case 53 :
-            nextState = (IOES == 1 ? 18 : 48);
-            IOES != IOES;
+            nextState = (IOES == 1 ? 18 : 8);
+            RTIS = 1;
             break;
         case 52 :
-            nextState = 60;
-            break;
-        case 60 :
             nextState = 51;
             break;
         case 51 :
             nextState = 18;
             break;
         default :
-            nextState = 18;
+            nextState = NEXT_LATCHES.STATE_NUMBER;
     }
     return nextState;
 }
@@ -1138,10 +1187,14 @@ void eval_micro_sequencer() {
     * micro sequencer logic. Latch the next microinstruction.
     */
 
-	if (CURRENT_LATCHES.STATE_NUMBER = 18)
-		supervisorMode = 0;
+	// hacks
+	// if (CURRENT_LATCHES.STATE_NUMBER == 8) {
+	// 	supervisorMode = 1;
+	// }
+	if (CURRENT_LATCHES.PSR)
 
     printf("STATE: %d\t CYCLE: %d\n", CURRENT_LATCHES.STATE_NUMBER, CYCLE_COUNT+1);
+    //printf("PSR VALUE: 0x%.4X\n", NEXT_LATCHES.PSR);
     int j0 = CURRENT_LATCHES.MICROINSTRUCTION[J0];
     int j1 = CURRENT_LATCHES.MICROINSTRUCTION[J1];
     int j2 = CURRENT_LATCHES.MICROINSTRUCTION[J2];
@@ -1186,9 +1239,23 @@ void eval_micro_sequencer() {
     if (NEXT_LATCHES.STATE_NUMBER == 10 || NEXT_LATCHES.STATE_NUMBER == 11)
     	ieHandler(0x04);
     if (supervisorMode)
-    	NEXT_LATCHES.STATE_NUMBER == stateLUT(CURRENT_LATCHES.STATE_NUMBER);
+    	NEXT_LATCHES.STATE_NUMBER = stateLUT(CURRENT_LATCHES.STATE_NUMBER);
 
     //		end lab 4 segment	//
+
+    //if ((CURRENT_LATCHES.STATE_NUMBER == 51 || CURRENT_LATCHES.STATE_NUMBER == 53) && supervisorMode) {
+	if (CURRENT_LATCHES.STATE_NUMBER == 51)
+		supervisorMode = 0;
+
+		// for(int i = 0; i < LC_3b_REGS; i++)
+		// 	NEXT_LATCHES.REGS[i] = savedRegs[i];
+	//}
+
+	if (CURRENT_LATCHES.STATE_NUMBER == 32 && NEXT_LATCHES.STATE_NUMBER == 8) {
+		NEXT_LATCHES.SPTRR += 2;
+		RTIS = 0;
+		IOES = 0;
+	}
 
     for(int i = 0; i < CONTROL_STORE_BITS; i++)
 		NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[NEXT_LATCHES.STATE_NUMBER][i];
