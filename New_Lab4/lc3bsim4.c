@@ -1045,7 +1045,6 @@ void eval_VTVR() {
 int gatePSRVal;
 void eval_PSR() {
 	gatePSRVal = CURRENT_LATCHES.PSR;
-	printf("PSRVAL: 0x%.4X\n", gatePSRVal);
 }
 
 int gateSPTRRVal;
@@ -1081,7 +1080,6 @@ void latch_PSR() {
 		else
 			NEXT_LATCHES.PSR = mask(CURRENT_LATCHES.PSR, 0x7FFF);
 	}
-	printf("PSRVAL: 0x%.4X\n", NEXT_LATCHES.PSR);
 }
 
 void latch_SPCR() {
@@ -1199,8 +1197,8 @@ void eval_micro_sequencer() {
 	// }
 	if (CURRENT_LATCHES.PSR)
 
-    printf("STATE: %d\t CYCLE: %d\t", CURRENT_LATCHES.STATE_NUMBER, CYCLE_COUNT+1);
-    printf("R0: 0x%.4X\n", CURRENT_LATCHES.REGS[1]);
+    printf("STATE: %d\t CYCLE: %d\n", CURRENT_LATCHES.STATE_NUMBER, CYCLE_COUNT+1);
+    //printf("PSR VALUE: 0x%.4X\n", NEXT_LATCHES.PSR);
     int j0 = CURRENT_LATCHES.MICROINSTRUCTION[J0];
     int j1 = CURRENT_LATCHES.MICROINSTRUCTION[J1];
     int j2 = CURRENT_LATCHES.MICROINSTRUCTION[J2];

@@ -1,198 +1,22 @@
 
 Current register/bus values :
 -------------------------------------
-Cycle Count  : 299
-PC           : 0x3008
-IR           : 0x03fe
-STATE_NUMBER : 0x0023
+Cycle Count  : 398
+PC           : 0x0000
+IR           : 0xf025
+STATE_NUMBER : 0x0012
 
 BUS          : 0x0000
-MDR          : 0x127f
-MAR          : 0x3006
-CCs: N = 0  Z = 0  P = 1
-Registers:
-0: 0x0000
-1: 0x00e2
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x0000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 300
-PC           : 0x3008
-IR           : 0x127f
-STATE_NUMBER : 0x0024
-
-BUS          : 0x127f
-MDR          : 0x127f
-MAR          : 0x3006
-CCs: N = 0  Z = 0  P = 1
-Registers:
-0: 0x0000
-1: 0x00e2
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x0000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 340
-PC           : 0x1204
-IR           : 0x5260
-STATE_NUMBER : 0x0020
-
-BUS          : 0x5260
-MDR          : 0x5260
-MAR          : 0x1202
+MDR          : 0x0000
+MAR          : 0x004a
 CCs: N = 1  Z = 0  P = 0
 Registers:
 0: 0xffff
-1: 0x00e2
+1: 0xffff
 2: 0x0000
 3: 0x0000
 4: 0x0000
 5: 0x0000
 6: 0x3000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 360
-PC           : 0x3006
-IR           : 0x8000
-STATE_NUMBER : 0x0032
-
-BUS          : 0x0000
-MDR          : 0xffff
-MAR          : 0x2ffe
-CCs: N = 0  Z = 1  P = 0
-Registers:
-0: 0xffff
-1: 0x0000
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x3000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 361
-PC           : 0x3006
-IR           : 0x8000
-STATE_NUMBER : 0x0032
-
-BUS          : 0x0000
-MDR          : 0xffff
-MAR          : 0x2ffe
-CCs: N = 0  Z = 1  P = 0
-Registers:
-0: 0xffff
-1: 0x0000
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x3000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 362
-PC           : 0x3006
-IR           : 0x8000
-STATE_NUMBER : 0x0032
-
-BUS          : 0x0000
-MDR          : 0xffff
-MAR          : 0x2ffe
-CCs: N = 0  Z = 1  P = 0
-Registers:
-0: 0xffff
-1: 0x0000
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x3000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 366
-PC           : 0x3008
-IR           : 0x8000
-STATE_NUMBER : 0x0021
-
-BUS          : 0x3006
-MDR          : 0x8001
-MAR          : 0x3006
-CCs: N = 0  Z = 1  P = 0
-Registers:
-0: 0xffff
-1: 0x0000
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x3000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 367
-PC           : 0x3008
-IR           : 0x8000
-STATE_NUMBER : 0x0021
-
-BUS          : 0x0000
-MDR          : 0xffff
-MAR          : 0x3006
-CCs: N = 0  Z = 1  P = 0
-Registers:
-0: 0xffff
-1: 0x0000
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x3000
-7: 0x0000
-
-
-Current register/bus values :
--------------------------------------
-Cycle Count  : 368
-PC           : 0x3008
-IR           : 0x8000
-STATE_NUMBER : 0x0021
-
-BUS          : 0x0000
-MDR          : 0xffff
-MAR          : 0x3006
-CCs: N = 0  Z = 1  P = 0
-Registers:
-0: 0xffff
-1: 0x0000
-2: 0x0000
-3: 0x0000
-4: 0x0000
-5: 0x0000
-6: 0x3000
-7: 0x0000
+7: 0x300c
 
