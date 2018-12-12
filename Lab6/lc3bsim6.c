@@ -989,7 +989,7 @@ int eval_Alu() {
       break;
     // PASSA
     case 3 :
-      aluResult = source2; //REGS[PS.AGEX_SR1]
+      aluResult = source2;
       break;
     default :
       printf("Not a valid aluK code\n");
@@ -1065,7 +1065,6 @@ int eval_Dependecy(int CS_ADDRESS, int sr1, int sr2) {
 }
 
 /************************* SR_stage() *************************/
-
 void SR_stage() {
   
   /* You are given the code for SR_stage to get you started. Look at
@@ -1152,13 +1151,6 @@ void MEM_stage() {
   else
     dcache_r = 1;
 
-  printf("Cycle: %d\n", CYCLE_COUNT+1);
-  // printf("ADDRESS: 0x%.4X\n", PS.MEM_ADDRESS);
-  // printf("WE0: %d\tWE1: %d\n", WE0, WE1);
-  // printf("D EN: %d\n", v_dcache_en);
-  // printf("D IN: 0x%.4X\n", dCacheIn);
-  // printf("D OUT: 0x%.4X\n", dCacheOut);
-
   // SR_DATA Logic Block
   if (v_dcache_en) {
     if (Get_DATA_SIZE(PS.MEM_CS))
@@ -1192,21 +1184,13 @@ void MEM_stage() {
   }
   else
     MEM_PCMUX = 0;
-  // int BR1 = MEM_PCMUX;
-  // printf("BR_1: %d\n", BR1);
 
   // Valid Block
-  if (PS.MEM_V) {
-    v_mem_ld_cc = Get_MEM_LD_CC(PS.MEM_CS);
-    v_mem_ld_reg = Get_MEM_LD_REG(PS.MEM_CS);
-    v_mem_br_stall = Get_MEM_BR_STALL(PS.MEM_CS);
-  }
-  else {
-    v_mem_ld_cc = 0;
-    v_mem_ld_reg = 0;
-    v_mem_br_stall = 0;
-  }
+  v_mem_ld_cc = (PS.MEM_V ? Get_MEM_LD_CC(PS.MEM_CS) : 0);
+  v_mem_ld_reg = (PS.MEM_V ? Get_MEM_LD_REG(PS.MEM_CS) : 0);
+  v_mem_br_stall = (PS.MEM_V ? Get_MEM_BR_STALL(PS.MEM_CS) : 0);
 
+  mem_stall = v_dcache_en && !dcache_r;
   int memV = PS.MEM_V && (!mem_stall);
 
   NEW_PS.SR_ADDRESS = PS.MEM_ADDRESS;
@@ -1244,8 +1228,6 @@ void AGEX_stage() {
   int aluResult = eval_Alu();
   int shfResult = eval_Shf();
   int muxResult = (Get_ALU_RESULTMUX(PS.AGEX_CS) ? aluResult : shfResult);
-  //printf("Cycle: %d\n", CYCLE_COUNT+1);
-  //printf("ALU RESULT: 0x%.4x\n", muxResult);
 
   // Valid Block Logic
   agex_reg_id = PS.AGEX_DRID; 
@@ -1260,7 +1242,7 @@ void AGEX_stage() {
     NEW_PS.MEM_ADDRESS = addr;
     NEW_PS.MEM_NPC = PS.AGEX_NPC;
     NEW_PS.MEM_CC = PS.AGEX_CC;
-    NEW_PS.MEM_ALU_RESULT = muxResult;
+    NEW_PS.MEM_ALU_RESULT = Low16bits(muxResult);
     NEW_PS.MEM_IR = PS.AGEX_IR;
     NEW_PS.MEM_DRID = PS.AGEX_DRID;
     NEW_PS.MEM_V = PS.AGEX_V;
@@ -1273,8 +1255,6 @@ void AGEX_stage() {
   }
 }
 
-
-
 /************************* DE_stage() *************************/
 void DE_stage() {
 
@@ -1286,13 +1266,7 @@ void DE_stage() {
 		  LD.AGEX signal */
 
   /* your code for DE stage goes here */
-
   CONTROL_STORE_ADDRESS = mask_shfR(PS.DE_IR, 0xf800, 10) + mask_shfR(PS.DE_IR, 0x0020, 5);
-
-  // printf("REGS {");
-  // for (int i = 0; i < LC3b_REGS; i++)
-  //   printf(" 0x%.4X,", REGS[i]);
-  // printf("}\n");
 
   // Reg File Logic
   int sr1 = mask_shfR(PS.DE_IR, 0x01C0, 6);
@@ -1302,16 +1276,13 @@ void DE_stage() {
   else
   	sr2 = mask(PS.DE_IR, 0x0007);
 
+  // load and store reg values
   int sr1_data = REGS[sr1];
   int sr2_data = REGS[sr2];
   REGS[sr_reg_id] = (v_sr_ld_reg ? Low16bits(sr_reg_data) : REGS[sr_reg_id]);
 
   int dr = (Get_DRMUX(CONTROL_STORE[CONTROL_STORE_ADDRESS]) ? 7 : mask_shfR(PS.DE_IR, 0x0E00, 9));
 
-  // printf("SR1: %d\tSR1_data: 0x%.4X\n", sr1, REGS[sr1]);
-  // printf("SR2: %d\tSR2_data: 0x%.4X\n", sr2, REGS[sr2]);
-  // printf("DR: %d\tDR_data: 0x%.4X\n", sr_reg_id, REGS[sr_reg_id]);
-  // set CC values
   int ccBits = (N << 2) + (Z << 1) + P;
   if (v_sr_ld_cc) {
     N = sr_n;
@@ -1324,10 +1295,6 @@ void DE_stage() {
 
   // BR stall logic
   v_de_br_stall = PS.DE_V && Get_DE_BR_STALL(CONTROL_STORE[CONTROL_STORE_ADDRESS]);
-  // int A = eval_Dependecy(CONTROL_STORE_ADDRESS, sr1, sr2);
-  // printf("A: %d\n", A);
-  // int B = eval_Dependecy2(CONTROL_STORE_ADDRESS, sr1, sr2);
-  // printf("B: %d\n", B);
 
   // stall check
   int agexV = PS.DE_V && (!dep_stall);
@@ -1351,8 +1318,6 @@ void DE_stage() {
   }
 
 }
-
-
 
 /************************* FETCH_stage() *************************/
 void FETCH_stage() {
@@ -1405,5 +1370,4 @@ void FETCH_stage() {
     NEW_PS.DE_IR = INSTRUCTION;
     NEW_PS.DE_V = decodeV;
   }
-}  
-
+}
