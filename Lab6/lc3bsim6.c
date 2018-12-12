@@ -970,26 +970,26 @@ int eval_Alu() {
         source2 = Low16bits(source2 | 0xFFE0);
   }
   else
-    source2 = REGS[PS.AGEX_SR2];
+    source2 = PS.AGEX_SR2;
 
   int aluResult;
   int aluKVal = Get_ALUK(PS.AGEX_CS);
   switch (aluKVal) {
     // ADD
     case 0 :
-      aluResult = REGS[PS.AGEX_SR1] + source2;
+      aluResult = PS.AGEX_SR1 + source2;
       break;
     // AND
     case 1 :
-      aluResult = REGS[PS.AGEX_SR1] & source2;
+      aluResult = PS.AGEX_SR1 & source2;
       break;
     // XOR
     case 2 :
-      aluResult = REGS[PS.AGEX_SR1] ^ source2;
+      aluResult = PS.AGEX_SR1 ^ source2;
       break;
     // PASSA
     case 3 :
-      aluResult = REGS[PS.AGEX_SR1];
+      aluResult = source2; //REGS[PS.AGEX_SR1]
       break;
     default :
       printf("Not a valid aluK code\n");
@@ -1012,7 +1012,7 @@ int eval_Shf() {
 
   // Check if the data is positive or negative
   int negFlag = 0;
-  int data = Low16bits(REGS[PS.AGEX_SR1]);
+  int data = Low16bits(PS.AGEX_SR1);
   if (data > 32767) {
     negFlag = 1;
   }
@@ -1289,6 +1289,11 @@ void DE_stage() {
 
   CONTROL_STORE_ADDRESS = mask_shfR(PS.DE_IR, 0xf800, 10) + mask_shfR(PS.DE_IR, 0x0020, 5);
 
+  // printf("REGS {");
+  // for (int i = 0; i < LC3b_REGS; i++)
+  //   printf(" 0x%.4X,", REGS[i]);
+  // printf("}\n");
+
   // Reg File Logic
   int sr1 = mask_shfR(PS.DE_IR, 0x01C0, 6);
   int sr2;
@@ -1297,10 +1302,15 @@ void DE_stage() {
   else
   	sr2 = mask(PS.DE_IR, 0x0007);
 
+  int sr1_data = REGS[sr1];
+  int sr2_data = REGS[sr2];
   REGS[sr_reg_id] = (v_sr_ld_reg ? Low16bits(sr_reg_data) : REGS[sr_reg_id]);
 
   int dr = (Get_DRMUX(CONTROL_STORE[CONTROL_STORE_ADDRESS]) ? 7 : mask_shfR(PS.DE_IR, 0x0E00, 9));
 
+  // printf("SR1: %d\tSR1_data: 0x%.4X\n", sr1, REGS[sr1]);
+  // printf("SR2: %d\tSR2_data: 0x%.4X\n", sr2, REGS[sr2]);
+  // printf("DR: %d\tDR_data: 0x%.4X\n", sr_reg_id, REGS[sr_reg_id]);
   // set CC values
   int ccBits = (N << 2) + (Z << 1) + P;
   if (v_sr_ld_cc) {
@@ -1327,8 +1337,8 @@ void DE_stage() {
     /* Your code for latching into AGEX latches goes here */
     NEW_PS.AGEX_NPC = PS.DE_NPC;
     NEW_PS.AGEX_IR = PS.DE_IR;
-    NEW_PS.AGEX_SR1 = REGS[sr1];
-    NEW_PS.AGEX_SR2 = REGS[sr2];
+    NEW_PS.AGEX_SR1 = sr1_data;
+    NEW_PS.AGEX_SR2 = sr2_data;
     NEW_PS.AGEX_CC = ccBits;
     NEW_PS.AGEX_DRID = dr;
     NEW_PS.AGEX_V = agexV;
